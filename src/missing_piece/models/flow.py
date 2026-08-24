@@ -95,7 +95,7 @@ class _FlowBase(PanelCompletionModel):
     # -- conditioning ----------------------------------------------------
     def _cond(self, cohort: Cohort) -> torch.Tensor:
         X = self.feature_spec.transform(cohort)
-        return torch.as_tensor(X, dtype=torch.float32, device=self.device)
+        return torch.tensor(X, dtype=torch.float32, device=self.device)
 
     def _maybe_drop_cond(self, cond: torch.Tensor) -> torch.Tensor:
         """Randomly blank whole conditioning vectors (classifier-free guidance)."""
@@ -111,12 +111,12 @@ class _FlowBase(PanelCompletionModel):
 
     def _fit_loop(self, train: Cohort, val: Cohort | None) -> None:
         torch.manual_seed(self.seed)
-        y = torch.as_tensor(
+        y = torch.tensor(
             train.target.to_numpy(dtype=float), dtype=torch.float32, device=self.device
         )
         cond = self._cond(train)
         if val is not None:
-            yv = torch.as_tensor(
+            yv = torch.tensor(
                 val.target.to_numpy(dtype=float), dtype=torch.float32, device=self.device
             )
             condv = self._cond(val)

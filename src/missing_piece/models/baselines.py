@@ -249,7 +249,7 @@ class MLPBaseline(PanelCompletionModel):
 
         if self.net_ is None:
             raise RuntimeError("call fit() first")
-        X = torch.as_tensor(
+        X = torch.tensor(
             self.feature_spec.transform(cohort), dtype=torch.float32, device=self.device
         )
         self.net_.eval()

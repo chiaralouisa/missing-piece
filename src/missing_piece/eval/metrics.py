@@ -18,11 +18,25 @@ number means:
     This is the metric that tests the hypothesis.
 
 ``within_patient``
-    Rank the target genes within each patient. Answers the clinical question
-    "which unassayed genes should I suspect in *this* tumour?".
+    Rank the target genes within each patient. This is the clinical question
+    ("which unassayed genes should I suspect in *this* tumour?") but it is
+    **also** prevalence-confounded: ranking genes inside a patient by predicted
+    probability is, for a patient-blind model, just ranking them by prevalence,
+    and the positives are preferentially the common genes. In the simulator's
+    ``independent`` regime -- where the target block is statistically
+    independent of the patient -- pooled AUROC reaches ~0.80 and within-patient
+    AUROC ~0.81, while macro AUROC correctly reads 0.500.
 
-Report all three. They routinely disagree, and only the last two survive the
-prevalence confound.
+``*_prevalence_adjusted``
+    Pooled and within-patient AUROC recomputed after removing each gene's own
+    mean predicted score (:func:`residualize_by_gene`). This strips the
+    prevalence channel and leaves only patient-specific ranking, so these read
+    0.5 under independence. Because AUROC within a gene is invariant to
+    per-gene monotone shifts, macro AUROC is unchanged by the adjustment.
+
+Report macro AUROC as the headline. Report pooled and within-patient only
+alongside their prevalence-adjusted counterparts and the prevalence-only
+baseline, or they will be read as evidence they cannot supply.
 """
 
 from __future__ import annotations
@@ -34,11 +48,14 @@ import numpy as np
 from scipy.stats import rankdata
 
 __all__ = [
+    "residualize_by_gene",
     "auroc_columnwise",
     "auroc_rowwise",
     "pooled_auroc",
     "macro_auroc",
     "within_patient_auroc",
+    "pooled_auroc_prevalence_adjusted",
+    "within_patient_auroc_prevalence_adjusted",
     "average_precision_columnwise",
     "macro_average_precision",
     "brier_score",
@@ -57,6 +74,34 @@ def _as_float_matrix(a) -> np.ndarray:
     if arr.ndim != 2:
         raise ValueError(f"expected a 2-D array, got shape {arr.shape}")
     return arr.astype(float, copy=False)
+
+
+def residualize_by_gene(
+    y_score, eps: float = 1e-6, tol: float = 1e-9
+) -> np.ndarray:
+    """Remove each gene's own mean score, on the logit scale.
+
+    Turns "how likely is this gene in general" into "how much more likely is it
+    in *this* patient than the model expects on average". Pooled and
+    within-patient AUROC computed on the residuals measure patient-specific
+    ranking only. Per-gene (macro) AUROC is unaffected, since subtracting a
+    per-gene constant is monotone within each gene.
+
+    ``tol`` snaps numerically-negligible residuals to exactly zero. This is not
+    cosmetic: for a patient-blind model every column is constant, the column
+    mean can differ from that constant by one ULP, and the surviving per-column
+    offsets would then be *ranked* by pooled AUROC -- silently reinstating the
+    prevalence ordering this function exists to remove.
+    """
+    s = _as_float_matrix(y_score)
+    # Probabilities get a logit first so the centring is on an additive scale;
+    # scores that are not probabilities are centred as-is.
+    if s.size and np.all((s >= 0) & (s <= 1)):
+        clipped = np.clip(s, eps, 1 - eps)
+        s = np.log(clipped / (1 - clipped))
+    resid = s - s.mean(axis=0, keepdims=True)
+    scale = np.maximum(s.std(axis=0, keepdims=True), 1.0)
+    return np.where(np.abs(resid) < tol * scale, 0.0, resid)
 
 
 def auroc_columnwise(
@@ -108,6 +153,18 @@ def within_patient_auroc(y_true, y_score, min_positives: int = 1) -> float:
     """Mean per-patient AUROC over patients with at least one target alteration."""
     per_patient = auroc_rowwise(y_true, y_score, min_positives=min_positives)
     return float(np.nanmean(per_patient)) if np.isfinite(per_patient).any() else _UNDEFINED
+
+
+def pooled_auroc_prevalence_adjusted(y_true, y_score) -> float:
+    """Pooled AUROC after removing the per-gene prevalence channel."""
+    return pooled_auroc(y_true, residualize_by_gene(y_score))
+
+
+def within_patient_auroc_prevalence_adjusted(
+    y_true, y_score, min_positives: int = 1
+) -> float:
+    """Within-patient AUROC after removing the per-gene prevalence channel."""
+    return within_patient_auroc(y_true, residualize_by_gene(y_score), min_positives)
 
 
 def average_precision_columnwise(y_true, y_score, min_positives: int = 1) -> np.ndarray:
@@ -163,6 +220,8 @@ class EvaluationResult:
     macro_auroc: float
     pooled_auroc: float
     within_patient_auroc: float
+    pooled_auroc_adjusted: float
+    within_patient_auroc_adjusted: float
     macro_average_precision: float
     brier: float
     ece: float
@@ -179,6 +238,8 @@ class EvaluationResult:
             "macro_auroc": self.macro_auroc,
             "pooled_auroc": self.pooled_auroc,
             "within_patient_auroc": self.within_patient_auroc,
+            "pooled_auroc_adjusted": self.pooled_auroc_adjusted,
+            "within_patient_auroc_adjusted": self.within_patient_auroc_adjusted,
             "macro_average_precision": self.macro_average_precision,
             "brier": self.brier,
             "ece": self.ece,
@@ -213,6 +274,8 @@ def evaluate_predictions(
         macro_auroc=float(np.nanmean(per_gene)) if np.isfinite(per_gene).any() else _UNDEFINED,
         pooled_auroc=pooled_auroc(y, p),
         within_patient_auroc=within_patient_auroc(y, p),
+        pooled_auroc_adjusted=pooled_auroc_prevalence_adjusted(y, p),
+        within_patient_auroc_adjusted=within_patient_auroc_prevalence_adjusted(y, p),
         macro_average_precision=(
             float(np.nanmean(per_gene_ap)) if np.isfinite(per_gene_ap).any() else _UNDEFINED
         ),

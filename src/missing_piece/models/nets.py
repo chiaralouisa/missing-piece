@@ -150,14 +150,14 @@ def train_supervised(
     verbose: bool = False,
 ) -> nn.Module:
     """Train a multi-label classifier with BCE and early stopping on val loss."""
-    x = torch.as_tensor(X, dtype=torch.float32, device=device)
-    y = torch.as_tensor(Y, dtype=torch.float32, device=device)
+    x = torch.tensor(X, dtype=torch.float32, device=device)
+    y = torch.tensor(Y, dtype=torch.float32, device=device)
     opt = torch.optim.AdamW(net.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fn = nn.BCEWithLogitsLoss()
 
     if val is not None:
-        xv = torch.as_tensor(val[0], dtype=torch.float32, device=device)
-        yv = torch.as_tensor(val[1], dtype=torch.float32, device=device)
+        xv = torch.tensor(val[0], dtype=torch.float32, device=device)
+        yv = torch.tensor(val[1], dtype=torch.float32, device=device)
 
     best_loss = float("inf")
     best_state = copy.deepcopy(net.state_dict())

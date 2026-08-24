@@ -300,9 +300,9 @@ def build_alteration_matrix(
     samples = list(clinical.index)
     gene_set = set(genes)
 
-    values = pd.DataFrame(
-        np.zeros((len(samples), len(genes)), dtype=bool), index=samples, columns=genes
-    )
+    sample_index = pd.Index(samples)
+    gene_index = pd.Index(genes)
+    arr = np.zeros((len(samples), len(genes)), dtype=bool)
 
     events = []
     muts = read_mutations(files, genes=gene_set, nonsynonymous_only=nonsynonymous_only)
@@ -313,15 +313,13 @@ def build_alteration_matrix(
         n_cna = len(cnas)
         events.append(cnas)
     all_events = pd.concat(events, ignore_index=True).drop_duplicates()
-    all_events = all_events[all_events["SAMPLE_ID"].isin(values.index)]
 
     if not all_events.empty:
-        row = values.index.get_indexer(all_events["SAMPLE_ID"])
-        col = values.columns.get_indexer(all_events["GENE"])
+        row = sample_index.get_indexer(all_events["SAMPLE_ID"])
+        col = gene_index.get_indexer(all_events["GENE"])
         ok = (row >= 0) & (col >= 0)
-        arr = values.to_numpy()
         arr[row[ok], col[ok]] = True
-        values = pd.DataFrame(arr, index=values.index, columns=values.columns)
+    values = pd.DataFrame(arr, index=sample_index, columns=gene_index)
 
     gpm = read_gene_panel_matrix(files)
     panel_of_sample = pd.Series("UNKNOWN", index=samples, name="PANEL", dtype=object)
