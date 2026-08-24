@@ -31,7 +31,7 @@ import pandas as pd
 
 from .data.cohort import NSCLC_ONCOTREE_CODES, Cohort, build_cohort
 from .data.simulate import SimulationConfig, simulate_cohort
-from .data.splits import SplitSpec, Splits, make_splits
+from .data.splits import SplitSpec, make_splits
 from .eval.joint import evaluate_joint
 from .eval.metrics import (
     bootstrap_metric,

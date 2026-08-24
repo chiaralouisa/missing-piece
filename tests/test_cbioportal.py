@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 
 from missing_piece.data.cbioportal import (

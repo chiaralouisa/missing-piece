@@ -192,7 +192,9 @@ prevalence baseline returns exactly 0.5; if it does not, this is why.
 Per-gene AUROC scores **marginals**: P(gene g altered | observed panel), one
 gene at a time. A discriminative multi-label classifier optimises exactly that
 objective, so on this metric it is the ceiling, not the comparison. Measured on
-the `full` regime, a plain MLP beats both flow-matching variants on macro AUROC.
+the `full` regime under 5-fold CV, *both* discriminative baselines beat *both*
+flow-matching variants on macro AUROC (logistic 0.732, MLP 0.727, discrete flow
+0.690, Gaussian flow 0.655).
 
 That is not an argument against the generative framing — it is an argument that
 the framing needs a metric that reflects it. What a generative model uniquely
@@ -260,6 +262,27 @@ predictive value at any sensitivity worth using.
 - Frame the output as **triage / hypothesis generation** — "this tumour warrants
   reflex broad sequencing" — not as a substitute for assaying the gene. A
   predicted alteration is not a biomarker and must not gate therapy.
+
+---
+
+## Reference results (simulated `full` regime, 5-fold CV, 2,226 patients)
+
+Produced by `configs/simulation_full.yaml`. These validate the **pipeline**, not
+any claim about MSK-CHORD.
+
+| model | macro AUROC [95% CI] | Δ vs burden | pooled | pooled adj. | genes scored |
+|---|---|---|---|---|---|
+| logistic | 0.732 [0.718, 0.746] | +0.107 | 0.855 | 0.764 | 138 |
+| mlp | 0.727 [0.716, 0.747] | +0.102 | 0.867 | 0.763 | 138 |
+| flow_discrete | 0.690 [0.681, 0.711] | +0.065 | 0.847 | 0.723 | 138 |
+| flow_gaussian | 0.655 [0.642, 0.671] | +0.030 | 0.812 | 0.695 | 138 |
+| burden | 0.625 [0.612, 0.639] | 0.000 | 0.824 | 0.629 | 138 |
+| prevalence | **0.500** [0.500, 0.500] | -0.125 | **0.803** | 0.500 | 138 |
+
+Read the last row first. A model that never looks at the patient scores **0.803
+pooled** — inside the abstract's reported range — and **0.500** on every metric
+that has had the prevalence channel removed. That contrast is the whole point of
+this table.
 
 ---
 

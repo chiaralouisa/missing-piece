@@ -203,7 +203,6 @@ class MLPBaseline(PanelCompletionModel):
 
     def fit(self, train: Cohort, val: Cohort | None = None) -> "MLPBaseline":
         import torch
-        from torch import nn
 
         from .nets import ResidualMLP, train_supervised
 

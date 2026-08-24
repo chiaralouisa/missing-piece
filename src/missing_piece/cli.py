@@ -11,6 +11,21 @@ from pathlib import Path
 from .experiment import ExperimentConfig, run_experiment
 
 
+def _coerce(value: str, current):
+    """Parse a --set value to match the type of the field it overrides.
+
+    Strings stay strings (so paths and names need no quoting); anything else is
+    read as JSON, which covers ints, floats, booleans, null, lists and the
+    nested dicts used for model and split settings.
+    """
+    if isinstance(current, str) or current is None and not value.startswith(("{", "[")):
+        return value
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"could not parse {value!r} as JSON: {exc}") from None
+
+
 def _configure_logging(verbose: bool) -> None:
     logging.basicConfig(
         level=logging.INFO if verbose else logging.WARNING,
@@ -26,11 +41,15 @@ def _cmd_run(args: argparse.Namespace) -> int:
         else ExperimentConfig()
     )
     for override in args.set or []:
-        key, _, value = override.partition("=")
-        if not hasattr(cfg, key):
-            raise KeyError(f"unknown config field '{key}'")
-        current = getattr(cfg, key)
-        setattr(cfg, key, json.loads(value) if isinstance(current, (dict, list, int, float, bool)) or value.startswith(("{", "[")) else value)
+        key, sep, value = override.partition("=")
+        if not sep:
+            raise ValueError(f"--set expects KEY=VALUE, got {override!r}")
+        if key not in ExperimentConfig.__dataclass_fields__:
+            raise KeyError(
+                f"unknown config field {key!r}; "
+                f"available: {sorted(ExperimentConfig.__dataclass_fields__)}"
+            )
+        setattr(cfg, key, _coerce(value, getattr(cfg, key)))
     if args.output_dir:
         cfg.output_dir = args.output_dir
     if args.name:
