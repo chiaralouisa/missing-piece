@@ -35,6 +35,7 @@ from .data.splits import SplitSpec, Splits, make_splits
 from .eval.joint import evaluate_joint
 from .eval.metrics import (
     bootstrap_metric,
+    quantize_by_column,
     evaluate_predictions,
     macro_auroc,
     permutation_test,
@@ -71,6 +72,7 @@ class ExperimentConfig:
     protocol: str = "holdout"          # "holdout" | "cv"
     n_folds: int = 5
     n_repeats: int = 1
+    align_folds: bool = True
     split: dict[str, Any] = field(default_factory=dict)
     models: dict[str, dict[str, Any]] = field(
         default_factory=lambda: {
@@ -268,6 +270,34 @@ def _predictions_holdout(
     return y, probs, seconds, {"test": splits.test, "models": models}, splits.summary()
 
 
+def _align_fold_levels(
+    probs: np.ndarray, fold_of: np.ndarray, eps: float = 1e-6
+) -> np.ndarray:
+    """Put every fold's predictions for a gene on a common level.
+
+    Out-of-fold predictions are not exchangeable across folds: a gene's
+    training prevalence is estimated *excluding* the fold it is applied to, so
+    a fold that happens to hold many positives was trained on a cohort with
+    correspondingly fewer, and receives systematically lower scores. Pooling
+    the folds then ranks the labels backwards -- the prevalence baseline lands
+    near 0.42 instead of the 0.50 it must score by construction, and every
+    model inherits the same downward bias.
+
+    Shifting each fold's logits so all folds share a gene's mean removes the
+    offset. Ranking *within* a fold is untouched, so no information crosses the
+    fold boundary. The result is quantised because the shift leaves per-fold
+    residues of ~1e-16 that AUROC would otherwise rank, reinstating most of the
+    bias this function removes.
+    """
+    clipped = np.clip(probs, eps, 1 - eps)
+    logits = np.log(clipped / (1 - clipped))
+    target = logits.mean(axis=0, keepdims=True)
+    for fold in np.unique(fold_of):
+        mask = fold_of == fold
+        logits[mask] += target - logits[mask].mean(axis=0, keepdims=True)
+    return 1.0 / (1.0 + np.exp(-quantize_by_column(logits)))
+
+
 def _predictions_cv(
     cohort: Cohort, cfg: ExperimentConfig
 ) -> tuple[np.ndarray, dict[str, np.ndarray], dict[str, float], dict[str, Any], str]:
@@ -293,6 +323,7 @@ def _predictions_cv(
             block = order_by_burden[start : start + k]
             fold_of[block] = rng.permutation(len(block))
 
+        repeat_pred = {name: np.zeros((n, y.shape[1])) for name in cfg.models}
         for fold in range(k):
             test_mask = fold_of == fold
             val_mask = fold_of == ((fold + 1) % k)
@@ -303,13 +334,21 @@ def _predictions_cv(
             for name, spec in cfg.models.items():
                 log.info("[cv r%d f%d] fitting %s", repeat, fold, name)
                 p, s, _ = _fit_predict(name, spec, train, val, test)
-                acc[name][test_mask] += p
+                repeat_pred[name][test_mask] = p
                 seconds[name] += s
+
+        for name in cfg.models:
+            acc[name] += (
+                _align_fold_levels(repeat_pred[name], fold_of)
+                if cfg.align_folds
+                else repeat_pred[name]
+            )
 
     probs = {name: a / cfg.n_repeats for name, a in acc.items()}
     summary = (
         f"{n} patients, {cfg.n_folds}-fold CV x {cfg.n_repeats} repeat(s); "
         f"metrics computed on pooled out-of-fold predictions for every patient\n"
+        f"fold-level alignment: {'on' if cfg.align_folds else 'OFF'}\n"
         f"target sparsity {cohort.target_sparsity():.4%}"
     )
     return y, probs, seconds, {"test": cohort, "models": {}}, summary

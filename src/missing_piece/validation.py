@@ -105,7 +105,9 @@ def control_table(
                     "model": name,
                     "macro_auroc": ev.macro_auroc,
                     "pooled_auroc": ev.pooled_auroc,
-                    "within_patient_auroc": ev.within_patient_auroc,
+                    "pooled_adj": ev.pooled_auroc_adjusted,
+                    "within_pt": ev.within_patient_auroc,
+                    "within_pt_adj": ev.within_patient_auroc_adjusted,
                     "vs_burden": (
                         None if burden_macro is None else ev.macro_auroc - burden_macro
                     ),
@@ -129,10 +131,19 @@ def _verdicts(table: pd.DataFrame, tol: float = 0.02) -> list[str]:
     )
     if not ind.empty:
         pooled_max = ind["pooled_auroc"].max()
+        within_max = ind["within_pt"].max()
         out.append(
             f"[INFO] independent regime: pooled AUROC still reaches {pooled_max:.4f} "
-            "with zero patient-specific signal -- pooled AUROC is a prevalence "
-            "statistic and must never be reported on its own."
+            f"and within-patient AUROC {within_max:.4f}, with zero patient-specific "
+            "signal. Both are prevalence statistics and must never be reported alone."
+        )
+        adj_worst = (ind["pooled_adj"] - 0.5).abs().max()
+        ok_adj = adj_worst <= tol * 2
+        out.append(
+            f"[{'PASS' if ok_adj else 'FAIL'}] independent regime: the "
+            f"prevalence-adjusted pooled AUROC returns to 0.5 (max deviation "
+            f"{adj_worst:.4f}), confirming the adjustment removes the confound "
+            "rather than the signal."
         )
 
     bo = table[table["regime"] == "burden_only"]

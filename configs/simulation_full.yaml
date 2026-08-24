@@ -1,0 +1,36 @@
+# Panel completion on a simulated cohort matched to the submitted abstract:
+# 2,226 patients, 341 observed genes -> 164 target genes, ~1.21% sparsity.
+# Regime "full": the small panel genuinely carries gene-specific information
+# about the unassayed genes, so a correct pipeline must detect it.
+name: simulation_full
+protocol: cv
+n_folds: 5
+n_repeats: 1
+seed: 0
+
+simulation:
+  n_patients: 2226
+  n_observed_genes: 341
+  n_target_genes: 164
+  target_sparsity: 0.0121
+  regime: full
+
+models:
+  prevalence: {}
+  burden: {}
+  logistic: {}
+  mlp: {epochs: 120, patience: 15}
+  flow_discrete: {epochs: 150, patience: 20, width: 384, depth: 4}
+  flow_gaussian:
+    epochs: 150
+    patience: 20
+    width: 384
+    depth: 4
+    n_samples_for_marginals: 64
+    n_sampling_steps: 30
+
+min_positives_for_gene_auroc: 5
+n_bootstrap: 400
+n_permutations: 200
+n_joint_samples: 20
+output_dir: results

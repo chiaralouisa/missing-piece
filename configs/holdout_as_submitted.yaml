@@ -1,0 +1,32 @@
+# The protocol as described in the submitted abstract: a single held-out split,
+# metrics on the last fraction of patients. Kept so the reported numbers can be
+# reproduced and compared against the cross-validated ones.
+#
+# NOTE: the abstract states 75% train / 15% validation / 15% test, which sums to
+# 105%. SplitSpec refuses fractions that do not sum to 1, so this config uses
+# 70/15/15 -- the most likely intended design. Change it to whatever was
+# actually run before quoting these numbers.
+name: holdout_as_submitted
+protocol: holdout
+split: {train: 0.70, val: 0.15, test: 0.15, seed: 0}
+seed: 0
+
+simulation:
+  n_patients: 2226
+  n_observed_genes: 341
+  n_target_genes: 164
+  target_sparsity: 0.0121
+  regime: full
+
+models:
+  prevalence: {}
+  burden: {}
+  logistic: {}
+  mlp: {epochs: 120, patience: 15}
+  flow_discrete: {epochs: 150, patience: 20}
+
+min_positives_for_gene_auroc: 5
+n_bootstrap: 400
+n_permutations: 200
+n_joint_samples: 20
+output_dir: results

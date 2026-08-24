@@ -140,3 +140,13 @@ def test_prevalence_baseline_scores_exactly_half_when_adjusted():
     scores = np.tile(prev, (900, 1))
     assert pooled_auroc_prevalence_adjusted(y, scores) == pytest.approx(0.5, abs=1e-12)
     assert within_patient_auroc_prevalence_adjusted(y, scores) == pytest.approx(0.5, abs=1e-12)
+
+
+def test_quantize_collapses_rounding_noise_but_keeps_real_differences():
+    from missing_piece.eval.metrics import quantize_by_column
+
+    col = np.full((100, 1), 3.0) + np.random.default_rng(0).normal(0, 1e-16, (100, 1))
+    assert len(np.unique(quantize_by_column(col))) == 1
+
+    real = np.linspace(0.0, 1.0, 100).reshape(-1, 1)
+    assert len(np.unique(quantize_by_column(real))) == 100

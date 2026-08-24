@@ -1,0 +1,42 @@
+# Panel completion on real MSK-CHORD NSCLC data.
+#
+# Requires the study files locally -- run scripts/fetch_msk_chord.sh first.
+# `study_dir` switches the pipeline from the simulator to the real loader; the
+# cohort is then restricted to samples actually sequenced on a panel that
+# covers the IMPACT505-only genes, with one sample per patient.
+name: msk_chord_nsclc
+study_dir: data/msk_chord_2024
+panel_dir: data/msk_chord_2024/gene_panels
+observed_panel: IMPACT341
+target_panel: IMPACT505
+
+restrict_to_nsclc: true
+include_cna: true
+deep_cna_only: true
+
+# Cross-validation, not a single 15% holdout: at ~1.2% prevalence a holdout
+# test set leaves most of the 164 target genes with too few positives to score.
+protocol: cv
+n_folds: 5
+n_repeats: 1
+seed: 0
+
+models:
+  prevalence: {}
+  burden: {}
+  logistic: {}
+  mlp: {epochs: 200, patience: 20}
+  flow_discrete: {epochs: 250, patience: 30, width: 512, depth: 4}
+  flow_gaussian:
+    epochs: 250
+    patience: 30
+    width: 512
+    depth: 4
+    n_samples_for_marginals: 128
+    n_sampling_steps: 50
+
+min_positives_for_gene_auroc: 5
+n_bootstrap: 500
+n_permutations: 300
+n_joint_samples: 20
+output_dir: results

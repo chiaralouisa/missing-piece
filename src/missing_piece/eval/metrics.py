@@ -48,6 +48,7 @@ import numpy as np
 from scipy.stats import rankdata
 
 __all__ = [
+    "quantize_by_column",
     "residualize_by_gene",
     "auroc_columnwise",
     "auroc_rowwise",
@@ -76,6 +77,27 @@ def _as_float_matrix(a) -> np.ndarray:
     return arr.astype(float, copy=False)
 
 
+def quantize_by_column(values, tol: float = 1e-9, scale=None) -> np.ndarray:
+    """Collapse per-column differences smaller than ``tol`` x the column scale.
+
+    Rank-based metrics have no floor on what counts as a difference: two scores
+    separated by one ULP are ranked as confidently as two separated by 0.5. Any
+    arithmetic that *should* produce identical scores but produces
+    floating-point noise instead -- centring a constant column, aligning fold
+    means -- therefore leaks a spurious ordering into AUROC. Snapping to a
+    relative grid makes "numerically indistinguishable" mean "tied", which is
+    what the statistics assume.
+    """
+    v = _as_float_matrix(values)
+    if scale is None:
+        scale = np.abs(v).max(axis=0, keepdims=True)
+    # The grid must be set by the scale of the *inputs*, not of the output. For
+    # a residual that is pure rounding noise the output scale is ~1e-16, and a
+    # grid derived from it would preserve exactly the noise being removed.
+    step = tol * np.maximum(np.asarray(scale, dtype=float), 1e-12)
+    return np.round(v / step) * step
+
+
 def residualize_by_gene(
     y_score, eps: float = 1e-6, tol: float = 1e-9
 ) -> np.ndarray:
@@ -99,9 +121,11 @@ def residualize_by_gene(
     if s.size and np.all((s >= 0) & (s <= 1)):
         clipped = np.clip(s, eps, 1 - eps)
         s = np.log(clipped / (1 - clipped))
-    resid = s - s.mean(axis=0, keepdims=True)
-    scale = np.maximum(s.std(axis=0, keepdims=True), 1.0)
-    return np.where(np.abs(resid) < tol * scale, 0.0, resid)
+    return quantize_by_column(
+        s - s.mean(axis=0, keepdims=True),
+        tol,
+        scale=np.maximum(np.abs(s).max(axis=0, keepdims=True), 1.0),
+    )
 
 
 def auroc_columnwise(
