@@ -9,7 +9,8 @@ from Targeted Panels with Generative Models* (Hempel & Capuano). It implements
 the modelling pipeline, a set of baselines the result has to beat to mean
 anything, and an evaluation designed so that a null result looks like one.
 
-> **Read [`docs/methods-review.md`](docs/methods-review.md) first.** It documents
+> **Read [`docs/methods-review.md`](docs/methods-review.md) first**
+> (also published as a formatted page: [methods review](https://claude.ai/code/artifact/d6825b2d-3c68-46e3-b177-f9fbcaa4df0a)). It documents
 > what this pipeline measured about the abstract's methodology — including the
 > finding that pooled AUROC reaches **0.795 on data containing zero recoverable
 > signal**, which overlaps the abstract's reported 0.77–0.79 range.

@@ -1,0 +1,642 @@
+<title>The Missing Piece Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
+
+<style>
+:root{
+  --paper:#F2F5F7;
+  --surface:#FFFFFF;
+  --surface-sunk:#E9EEF2;
+  --ink:#131A24;
+  --ink-2:#3C4A58;
+  --muted:#5C6B7A;
+  --rule:#D6DEE4;
+  --rule-strong:#B9C6D0;
+  --accent:#00819E;
+  --accent-soft:#E0F0F4;
+  --critical:#A32B22;
+  --critical-soft:#F7E7E5;
+  --shadow:0 1px 2px rgba(19,26,36,.06),0 8px 24px -16px rgba(19,26,36,.28);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0D1319;
+    --surface:#151E27;
+    --surface-sunk:#101821;
+    --ink:#E6ECF2;
+    --ink-2:#B7C4D0;
+    --muted:#93A3B3;
+    --rule:#24313D;
+    --rule-strong:#33434F;
+    --accent:#0A8CAB;
+    --accent-soft:#0E2932;
+    --critical:#D15A4E;
+    --critical-soft:#2B1815;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -16px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0D1319;
+  --surface:#151E27;
+  --surface-sunk:#101821;
+  --ink:#E6ECF2;
+  --ink-2:#B7C4D0;
+  --muted:#93A3B3;
+  --rule:#24313D;
+  --rule-strong:#33434F;
+  --accent:#0A8CAB;
+  --accent-soft:#0E2932;
+  --critical:#D15A4E;
+  --critical-soft:#2B1815;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -16px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Source Sans 3",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:17px;line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+  margin:0;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px 96px}
+.col{max-width:68ch}
+h1,h2,h3,h4{font-family:Spectral,Georgia,"Times New Roman",serif;text-wrap:balance;margin:0}
+a{color:var(--accent)}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
+code,.mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+code{font-size:.86em;background:var(--surface-sunk);padding:.12em .38em;border-radius:4px;color:var(--ink-2)}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- masthead ---------- */
+header.mast{border-bottom:1px solid var(--rule);background:var(--surface);}
+.mast-inner{max-width:1080px;margin:0 auto;padding:0 28px}
+.eyebrow{
+  font-family:"JetBrains Mono",monospace;font-size:11.5px;font-weight:500;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--accent);
+}
+.mast h1{font-size:clamp(30px,4.6vw,50px);line-height:1.1;font-weight:700;letter-spacing:-.015em;margin:14px 0 0;max-width:19ch}
+.standfirst{font-size:19px;color:var(--ink-2);max-width:60ch;margin:16px 0 0;font-weight:300}
+.mast-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:40px;align-items:end;padding:44px 0 0}
+@media(max-width:820px){.mast-grid{grid-template-columns:1fr;gap:28px}}
+
+/* the sparsity plate: the actual data shape, 1.21% of cells filled */
+figure.plate{margin:0;display:flex;flex-direction:column;gap:8px}
+#sparsity{width:100%;height:150px;display:block;background:var(--surface-sunk);border:1px solid var(--rule);border-radius:3px}
+figcaption{font-size:12.5px;color:var(--muted);line-height:1.45}
+
+.meta{
+  display:flex;flex-wrap:wrap;gap:0;margin-top:36px;
+  border-top:1px solid var(--rule);
+}
+.meta div{padding:14px 26px 16px 0;margin-right:26px;border-right:1px solid var(--rule)}
+.meta div:last-child{border-right:0}
+.meta dt{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 3px}
+.meta dd{margin:0;font-size:14.5px;color:var(--ink-2)}
+
+/* ---------- the headline finding ---------- */
+.verdict{
+  margin:44px 0 0;background:var(--surface);border:1px solid var(--rule);
+  border-left:3px solid var(--critical);border-radius:3px;box-shadow:var(--shadow);
+  padding:26px 30px 28px;
+}
+.verdict .eyebrow{color:var(--critical)}
+.verdict h2{font-size:25px;font-weight:600;margin:10px 0 12px;max-width:30ch;line-height:1.24}
+.verdict p{margin:0;color:var(--ink-2);max-width:64ch}
+.stat-pair{display:flex;flex-wrap:wrap;gap:14px;margin:24px 0 0}
+.stat{
+  flex:1 1 210px;background:var(--surface-sunk);border:1px solid var(--rule);
+  border-radius:3px;padding:16px 18px 14px;
+}
+.stat .k{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-family:"JetBrains Mono",monospace;font-size:37px;font-weight:700;line-height:1.05;margin:7px 0 4px;font-variant-numeric:tabular-nums}
+.stat .n{font-size:13.5px;color:var(--muted);line-height:1.4}
+.stat.is-critical .v{color:var(--critical)}
+.stat.is-ok .v{color:var(--accent)}
+
+/* ---------- sections ---------- */
+section{margin:64px 0 0}
+h2.sec{font-size:13px;font-family:"JetBrains Mono",monospace;font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);padding-bottom:11px;border-bottom:1px solid var(--rule-strong);margin-bottom:8px}
+p{margin:18px 0 0}
+.col p:first-child{margin-top:20px}
+
+/* ---------- findings ---------- */
+.finding{border-bottom:1px solid var(--rule);padding:30px 0 32px}
+.finding:last-child{border-bottom:0}
+.f-head{display:grid;grid-template-columns:58px minmax(0,1fr);gap:20px;align-items:start}
+@media(max-width:600px){.f-head{grid-template-columns:1fr;gap:6px}}
+.f-num{
+  font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:700;
+  color:var(--accent);padding-top:7px;font-variant-numeric:tabular-nums;
+}
+.finding h3{font-size:23px;font-weight:600;line-height:1.28;max-width:34ch}
+.f-body{grid-column:2;max-width:68ch}
+@media(max-width:600px){.f-body{grid-column:1}}
+.f-body p:first-child{margin-top:14px}
+.tag{
+  display:inline-block;font-family:"JetBrains Mono",monospace;font-size:10.5px;
+  letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:3px;
+  border:1px solid var(--rule-strong);color:var(--muted);margin:0 0 2px;
+}
+.tag.hot{color:var(--critical);border-color:var(--critical);background:var(--critical-soft)}
+.fix{
+  margin-top:18px;padding:15px 18px;background:var(--accent-soft);
+  border-radius:3px;border:1px solid transparent;
+}
+.fix strong{font-weight:600;color:var(--ink)}
+.fix p{margin:0;color:var(--ink-2);font-size:16px}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto;margin-top:22px;border:1px solid var(--rule);border-radius:3px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:640px}
+th,td{text-align:right;padding:10px 14px;border-bottom:1px solid var(--rule);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+thead th{
+  font-family:"JetBrains Mono",monospace;font-size:10.5px;font-weight:500;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);background:var(--surface-sunk);
+  border-bottom:1px solid var(--rule-strong);position:sticky;top:0;
+}
+tbody td{font-variant-numeric:tabular-nums;font-family:"JetBrains Mono",monospace;font-size:13.5px;color:var(--ink-2)}
+tbody td:first-child{font-family:"Source Sans 3",sans-serif;font-size:15px;color:var(--ink)}
+tbody tr:last-child td{border-bottom:0}
+tr.baseline td{background:var(--surface-sunk)}
+tr.baseline td:first-child::after{content:" baseline";font-size:11px;color:var(--muted);letter-spacing:.04em}
+
+/* single-series meter: magnitude, anchored to baseline, chance marked */
+.meter{position:relative;width:132px;height:9px;background:var(--surface-sunk);border-radius:2px;display:inline-block;vertical-align:middle;overflow:hidden}
+.meter i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:0 4px 4px 0;display:block}
+.meter u{position:absolute;top:-2px;bottom:-2px;width:1px;background:var(--rule-strong);left:50%}
+td.mcell{text-align:left;padding-left:14px}
+
+.caption{font-size:13px;color:var(--muted);margin-top:10px;max-width:70ch;line-height:1.5}
+
+ul,ol{margin:18px 0 0;padding-left:1.15em;max-width:68ch}
+li{margin:7px 0;color:var(--ink-2)}
+li strong{color:var(--ink);font-weight:600}
+
+.checklist{list-style:none;padding:0;margin:22px 0 0;display:grid;gap:0;border:1px solid var(--rule);border-radius:3px;background:var(--surface);max-width:none}
+.checklist li{
+  margin:0;padding:13px 18px;border-bottom:1px solid var(--rule);
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:20px;align-items:baseline;
+}
+.checklist li:last-child{border-bottom:0}
+@media(max-width:640px){.checklist li{grid-template-columns:1fr;gap:3px}}
+.checklist b{font-weight:600;color:var(--ink);font-size:15.5px}
+.checklist span{font-size:14px;color:var(--muted)}
+
+footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--rule-strong);font-size:14px;color:var(--muted);max-width:68ch}
+footer p{margin:12px 0 0}
+</style>
+
+<header class="mast">
+  <div class="mast-inner">
+    <div class="mast-grid">
+      <div>
+        <div class="eyebrow">Methods review &middot; panel completion</div>
+        <h1>What the AUROC is actually measuring</h1>
+        <p class="standfirst">
+          A review of <i>Predicting Whole Tumor Genomic Profiles from Targeted Panels
+          with Generative Models</i> — ten findings, ordered by how much each could
+          change the conclusion.
+        </p>
+      </div>
+      <figure class="plate">
+        <canvas id="sparsity" aria-label="A grid standing for the prediction target: 164 genes across 120 patients, with 1.21% of cells carrying an alteration."></canvas>
+        <figcaption>
+          The prediction target, to scale: 164&nbsp;genes &times; 120&nbsp;patients,
+          <b>1.21%</b> of cells altered. Everything below follows from how empty this grid is.
+        </figcaption>
+      </figure>
+    </div>
+
+    <dl class="meta">
+      <div><dt>Task</dt><dd>IMPACT341 &rarr; IMPACT505, 164 unassayed genes</dd></div>
+      <div><dt>Cohort</dt><dd>2,226 NSCLC patients (MSK-CHORD)</dd></div>
+      <div><dt>Reported</dt><dd>AUROC 0.77&ndash;0.79</dd></div>
+      <div><dt>Status</dt><dd>Pipeline validated; real data not yet run</dd></div>
+    </dl>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="verdict">
+    <div class="eyebrow">Finding 01 &middot; affects the headline</div>
+    <h2>A model that never looks at the patient scores 0.795</h2>
+    <p>
+      In a simulated cohort built so that the target genes are <b>statistically
+      independent of the patient</b> — zero recoverable signal, by construction —
+      the prevalence-only baseline still reaches a pooled AUROC of 0.795, just under
+      the range the abstract reports. Pooled AUROC is dominated by differences in
+      prevalence <i>between</i> genes, not by anything learned about a tumour.
+      Per-gene (macro) AUROC, which is prevalence-free, correctly reads 0.500 on
+      the same predictions.
+    </p>
+    <div class="stat-pair">
+      <div class="stat is-critical">
+        <div class="k">Pooled AUROC · no signal present</div>
+        <div class="v">0.795</div>
+        <div class="n">Just under the reported 0.77–0.79</div>
+      </div>
+      <div class="stat is-critical">
+        <div class="k">Within-patient AUROC · no signal</div>
+        <div class="v">0.809</div>
+        <div class="n">Also prevalence-confounded</div>
+      </div>
+      <div class="stat is-ok">
+        <div class="k">Macro AUROC · no signal</div>
+        <div class="v">0.500</div>
+        <div class="n">Reads the null correctly</div>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <h2 class="sec">The ten findings</h2>
+    <div class="col">
+      <p>
+        None of this says the result is wrong. Several findings say the number
+        <i>as reported</i> cannot distinguish a real result from a null one — a
+        different problem, and a fixable one. Each finding names the fix.
+      </p>
+    </div>
+
+    <div class="finding">
+      <div class="f-head">
+        <div class="f-num">01</div>
+        <div><span class="tag hot">Could invalidate the headline</span>
+          <h3>The reported AUROC may not measure what the conclusion claims</h3></div>
+        <div class="f-body">
+          <p>
+            With 164 genes at 1.21% prevalence, the value of AUROC depends entirely on
+            how it is averaged, and the abstract does not say. A gene altered in 12% of
+            tumours contributes mostly-positive pairs; one altered in 0.3% contributes
+            mostly-negative ones. Rank all pairs together and gene prevalence does the
+            work.
+          </p>
+          <p>
+            Note too that under macro AUROC the claim &ldquo;exceeded a prevalence-only
+            baseline&rdquo; becomes near-vacuous: that baseline is 0.500 by construction,
+            so any signal at all exceeds it. The informative comparison is finding 02.
+          </p>
+          <div class="fix"><p><strong>Fix.</strong> Report macro (per-gene) AUROC as the
+            headline. Keep pooled AUROC only beside the prevalence-only baseline computed
+            identically, and beside its prevalence-adjusted twin.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="f-head">
+        <div class="f-num">02</div>
+        <div><span class="tag hot">Decides the interpretation</span>
+          <h3>The baseline that matters is mutational burden, and it is missing</h3></div>
+        <div class="f-body">
+          <p>
+            Two very different mechanisms produce cross-panel predictability.
+            <b>Gene-specific co-alteration</b> — <i>EGFR</i>-mutant tumours look unlike
+            <i>KRAS</i>-mutant ones — is the interesting claim. <b>Mutational burden</b>
+            is not: a hypermutated tumour has more alterations everywhere, so counting
+            altered genes on the 341-gene panel predicts counts on the other 164 with no
+            gene-specific information at all.
+          </p>
+          <p>
+            Burden alone clears a prevalence-only baseline comfortably. So the stated
+            comparison cannot separate &ldquo;the panel predicts the genome&rdquo; from
+            &ldquo;burden predicts burden&rdquo; — and only the first supports the conclusion.
+          </p>
+          <div class="fix"><p><strong>Fix.</strong> Add a burden-only baseline: one logistic
+            regression per target gene whose sole input is the number of altered genes on the
+            observed panel. Report <b>macro AUROC minus burden</b> as the primary effect size.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="f-head">
+        <div class="f-num">03</div>
+        <div><span class="tag">Cohort construction</span>
+          <h3>Unassayed genes are missing data, not wild-type</h3></div>
+        <div class="f-body">
+          <p>
+            A patient sequenced with IMPACT341 was never interrogated for the 164
+            IMPACT505-only genes. Scoring those as &ldquo;no alteration&rdquo; adds 164
+            guaranteed negatives per patient and inflates every metric.
+          </p>
+          <p>
+            MSK-CHORD is ~25,000 tumours and its NSCLC subset is far larger than 2,226 —
+            if your cohort came from restricting to IMPACT505-sequenced patients, this is
+            already handled. Say so explicitly; a reviewer will ask.
+          </p>
+          <p>
+            One consequence for framing: restricting that way makes the
+            &ldquo;IMPACT341 input&rdquo; a <b>retrospective mask</b> on IMPACT505 data,
+            not real small-panel output. That is the right way to build the benchmark, but
+            it is not the deployment setting, and the claim of broadening access rests on
+            transfer across that gap.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="f-head">
+        <div class="f-num">04</div>
+        <div><span class="tag">Cohort construction</span>
+          <h3>Repeat samples per patient leak across the split</h3></div>
+        <div class="f-body">
+          <p>
+            MSK-IMPACT cohorts contain multiple samples from the same patient. Two samples
+            from one tumour share most of their alterations; if one lands in train and the
+            other in test, the model is scored partly on memorisation. The abstract says
+            &ldquo;held-out patients&rdquo;, which suggests this was handled — make it explicit.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="f-head">
+        <div class="f-num">05</div>
+        <div><span class="tag">Reporting</span>
+          <h3>The split percentages sum to 105%</h3></div>
+        <div class="f-body">
+          <p>
+            &ldquo;75% &hellip; 15% for further validation &hellip; the last 15% of held-out
+            patients.&rdquo; Presumably 70/15/15. Trivial to fix, but it is exactly the kind
+            of thing a reviewer notices, and it costs credibility on everything else.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="f-head">
+        <div class="f-num">06</div>
+        <div><span class="tag">Statistical power</span>
+          <h3>A 15% test split cannot support a 164-gene macro average</h3></div>
+        <div class="f-body">
+          <p>
+            334 test patients &times; 1.21% prevalence is about <b>four expected positives
+            per gene</b>. Most of the 164 genes have too few positives for a per-gene AUROC
+            to mean anything, and the macro average then silently describes only the handful
+            of common genes.
+          </p>
+          <p>
+            Measured: with a single 15% holdout, <b>~50 of 164</b> genes were scoreable at a
+            five-positive threshold. Under 5-fold cross-validation with pooled out-of-fold
+            predictions, <b>138 of 164</b> were.
+          </p>
+          <div class="fix"><p><strong>Fix.</strong> Use repeated K-fold CV on out-of-fold
+            predictions, and always report how many genes entered the macro average.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="f-head">
+        <div class="f-num">07</div>
+        <div><span class="tag">Implementation trap</span>
+          <h3>Pooling out-of-fold predictions introduces a bias of its own</h3></div>
+        <div class="f-body">
+          <p>
+            Found while building this pipeline, and worth knowing before you switch to CV.
+            A gene's training prevalence is estimated <i>excluding</i> the fold it is applied
+            to, so a fold holding unusually many positives was trained on a cohort with
+            correspondingly fewer, and receives systematically lower scores. Pool the folds
+            and the ranking runs backwards: the prevalence baseline, which must score exactly
+            0.500, came out at <b>0.424</b>, and every model inherited the same downward bias.
+          </p>
+          <p>
+            A related trap bit twice. Rank metrics have no resolution floor — AUROC ranks a
+            one-ULP difference as confidently as a difference of 0.5. Centring a constant
+            column leaves per-gene residues of ~1e-16, which then get ranked, silently
+            restoring the prevalence ordering the centring existed to remove.
+          </p>
+          <div class="fix"><p><strong>Check.</strong> If you implement fold pooling or
+            prevalence adjustment yourself, verify your prevalence baseline returns
+            <i>exactly</i> 0.500. If it does not, this is why.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="f-head">
+        <div class="f-num">08</div>
+        <div><span class="tag">Framing</span>
+          <h3>Nothing in the evaluation yet rewards the model for being generative</h3></div>
+        <div class="f-body">
+          <p>
+            Per-gene AUROC scores <b>marginals</b>, one gene at a time — precisely what a
+            discriminative multi-label classifier optimises. On this metric it is the
+            ceiling, not the comparison. Measured under 5-fold CV, both discriminative
+            baselines beat both flow-matching variants.
+          </p>
+          <p>
+            That is not an argument against the generative framing; it is an argument that
+            the framing needs a metric reflecting it. What a generative model uniquely gives
+            you is a <b>joint</b> distribution: coherent whole profiles preserving
+            co-occurrence and mutual exclusivity, and calibrated uncertainty.
+          </p>
+          <div class="fix"><p><strong>Fix.</strong> Report joint-structure metrics alongside
+            AUROC — fidelity of sampled gene&ndash;gene co-alteration, and distance between
+            sampled and true per-patient burden distributions. Independent draws from a
+            discriminative model's marginals are the right null.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="f-head">
+        <div class="f-num">09</div>
+        <div><span class="tag">Method refinement</span>
+          <h3>How you read probabilities out of a flow model changes the AUROC</h3></div>
+        <div class="f-body">
+          <p>
+            Gaussian flow matching produces samples, not probabilities. Estimating a marginal
+            means integrating many trajectories and averaging, so resolution is bounded by
+            the sample count — with 64 samples nothing finer than 1/64 exists, ties
+            proliferate, and AUROC pays for it. That is an artifact of the <i>readout</i>,
+            easily mistaken for the method underperforming.
+          </p>
+          <p>
+            <b>Discrete flow matching</b> on <code>{0, 1, MASK}</code> avoids it entirely: at
+            <i>t</i>&nbsp;=&nbsp;0 every gene is masked, so one forward pass returns exact
+            conditional marginals with no sampling noise, while ancestral unmasking still
+            gives joint samples. For sparse binary genomics it is the better estimator and
+            about 2&times; cheaper.
+          </p>
+          <div class="fix"><p><strong>Worth checking.</strong> If the 0.77&ndash;0.79 spread
+            came from &ldquo;variants of architecture and training paradigm&rdquo;, some of it
+            may be readout variance rather than genuine architectural difference.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="f-head">
+        <div class="f-num">10</div>
+        <div><span class="tag">Clinical claim</span>
+          <h3>AUROC is not a clinical claim</h3></div>
+        <div class="f-body">
+          <p>
+            AUROC is threshold-free and prevalence-blind; neither property survives contact
+            with a clinic, where a clinician acts at one threshold on a population with a
+            specific base rate. At 1.2% prevalence a gene with AUROC 0.80 can still have a
+            positive predictive value in the low single digits at any usable sensitivity.
+          </p>
+          <ul>
+            <li>Report <strong>PPV and sensitivity at real operating points</strong>, per gene, plus net benefit.</li>
+            <li>Report <strong>calibration</strong> — a probability informing a decision has to be right, not merely well-ordered.</li>
+            <li>Restrict a secondary analysis to <strong>actionable genes</strong>; a mean over 164 genes of mixed relevance tells an oncologist nothing to act on.</li>
+            <li>Correct for <strong>multiple testing</strong> across 164 genes.</li>
+            <li>Frame the output as <strong>triage</strong> — &ldquo;this tumour warrants reflex broad sequencing&rdquo; — never as a substitute for assaying the gene.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec">Reference results &middot; simulated cohort, 5-fold CV</h2>
+    <div class="col">
+      <p>
+        2,226 patients, 341&nbsp;&rarr;&nbsp;164 genes, 1.22% sparsity, in a regime built so
+        the small panel <i>does</i> carry gene-specific information. These validate the
+        pipeline, not any claim about MSK-CHORD.
+      </p>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th><th class="mcell">Macro AUROC</th><th></th><th>95% CI</th>
+            <th>&Delta; vs burden</th><th>Pooled</th><th>Pooled adj.</th><th>Genes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Logistic</td><td class="mcell"><span class="meter"><i style="width:73.2%"></i><u></u></span></td><td>0.732</td><td>0.718–0.746</td><td>+0.107</td><td>0.855</td><td>0.764</td><td>138</td></tr>
+          <tr><td>MLP</td><td class="mcell"><span class="meter"><i style="width:72.7%"></i><u></u></span></td><td>0.727</td><td>0.716–0.747</td><td>+0.102</td><td>0.867</td><td>0.763</td><td>138</td></tr>
+          <tr><td>Flow, discrete</td><td class="mcell"><span class="meter"><i style="width:69.0%"></i><u></u></span></td><td>0.690</td><td>0.681–0.711</td><td>+0.065</td><td>0.847</td><td>0.723</td><td>138</td></tr>
+          <tr><td>Flow, Gaussian</td><td class="mcell"><span class="meter"><i style="width:65.5%"></i><u></u></span></td><td>0.655</td><td>0.642–0.671</td><td>+0.030</td><td>0.812</td><td>0.695</td><td>138</td></tr>
+          <tr class="baseline"><td>Burden</td><td class="mcell"><span class="meter"><i style="width:62.5%"></i><u></u></span></td><td>0.625</td><td>0.612–0.639</td><td>0.000</td><td>0.824</td><td>0.629</td><td>138</td></tr>
+          <tr class="baseline"><td>Prevalence</td><td class="mcell"><span class="meter"><i style="width:50.0%"></i><u></u></span></td><td>0.500</td><td>0.500–0.500</td><td>−0.125</td><td>0.803</td><td>0.500</td><td>138</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption">
+      Bars show macro AUROC; the hairline marks chance (0.500). Read the last row first: a
+      model that never looks at the patient scores <b>0.803 pooled</b> and <b>0.500</b> on
+      every metric with the prevalence channel removed. That contrast is the whole point of
+      the table.
+    </p>
+  </section>
+
+  <section>
+    <h2 class="sec">Negative controls &middot; does the evaluation report null when null is true?</h2>
+    <div class="col">
+      <p>
+        The same code path runs on three simulated regimes. Two contain no gene-specific
+        signal and must come back empty; the third contains real signal and must be detected.
+      </p>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Regime</th><th>What is true</th><th>Macro AUROC</th><th>Pooled</th><th>Pooled adj.</th><th>Best gain vs burden</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr><td>Independent</td><td style="text-align:left;font-family:'Source Sans 3',sans-serif;white-space:normal">Target genes independent of the patient</td><td>0.500</td><td>0.795</td><td>0.500</td><td>—</td><td>Pass</td></tr>
+          <tr><td>Burden only</td><td style="text-align:left;font-family:'Source Sans 3',sans-serif;white-space:normal">Only burden couples the two panels</td><td>0.569</td><td>0.803</td><td>0.582</td><td>+0.007</td><td>Pass</td></tr>
+          <tr><td>Full</td><td style="text-align:left;font-family:'Source Sans 3',sans-serif;white-space:normal">Real gene-specific cross-panel signal</td><td>0.761</td><td>0.853</td><td>0.773</td><td>+0.126</td><td>Pass</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption">
+      The <i>independent</i> row is the one to keep in mind: pooled AUROC 0.795 and
+      within-patient 0.809 on data with nothing to find, both returning to 0.500 once the
+      prevalence channel is removed.
+    </p>
+  </section>
+
+  <section>
+    <h2 class="sec">Minimum reporting set</h2>
+    <ul class="checklist">
+      <li><b>Macro AUROC + bootstrap CI</b><span>Prevalence-free headline</span></li>
+      <li><b>&Delta; vs burden-only baseline</b><span>The effect size that supports the claim</span></li>
+      <li><b>&Delta; vs prevalence baseline</b><span>Comparability with the abstract</span></li>
+      <li><b>Genes entering the macro average</b><span>Guards against a biased, high-prevalence subset</span></li>
+      <li><b>Pooled AUROC and its adjusted twin</b><span>Transparency about the confound</span></li>
+      <li><b>Permutation-test p-value</b><span>Evidence of patient-specific information</span></li>
+      <li><b>Brier / ECE</b><span>Calibration, for any clinical framing</span></li>
+      <li><b>Co-occurrence fidelity, burden KS</b><span>What the generative model is actually for</span></li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>
+      <b>Validated:</b> the pipeline detects real cross-panel signal where it exists, reports
+      no gene-specific gain where only burden couples the panels, and reports exactly chance
+      where the target block is independent of the patient. Two bias sources found during
+      construction are fixed and covered by regression tests.
+    </p>
+    <p>
+      <b>Not validated:</b> any claim about MSK-CHORD. The cBioPortal hosts were unreachable
+      from the environment this was built in, so every number here comes from simulated
+      cohorts matched to the abstract's dimensions. The simulator reproduces the abstract's
+      <i>shape</i>, which means it can validate the methodology and says nothing about the
+      finding itself.
+    </p>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var c = document.getElementById('sparsity');
+  if(!c) return;
+  var GENES = 164, PATIENTS = 120, RATE = 0.0121;
+  function ink(name){
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+  function draw(){
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = c.clientWidth, h = c.clientHeight;
+    if(!w || !h) return;
+    c.width = w * dpr; c.height = h * dpr;
+    var x = c.getContext('2d');
+    x.setTransform(dpr,0,0,dpr,0,0);
+    x.clearRect(0,0,w,h);
+
+    var cw = w / GENES, ch = h / PATIENTS;
+    // Deterministic hash so the plate is identical on every render.
+    var seed = 20240824;
+    function rnd(){ seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+
+    x.fillStyle = ink('--rule');
+    x.globalAlpha = 0.55;
+    for(var g=0; g<GENES; g+=1){
+      for(var p=0; p<PATIENTS; p+=1){
+        if(rnd() < 0.5) continue;               // faint texture of assayed-but-clean cells
+        x.fillRect(g*cw, p*ch, Math.max(cw-0.6,0.5), Math.max(ch-0.6,0.5));
+      }
+    }
+    x.globalAlpha = 1;
+    x.fillStyle = ink('--accent');
+    seed = 987654321;
+    for(var g2=0; g2<GENES; g2++){
+      for(var p2=0; p2<PATIENTS; p2++){
+        if(rnd() < RATE){
+          x.fillRect(g2*cw, p2*ch, Math.max(cw-0.4,1.2), Math.max(ch-0.4,1.2));
+        }
+      }
+    }
+  }
+  draw();
+  var t;
+  window.addEventListener('resize', function(){ clearTimeout(t); t = setTimeout(draw, 120); });
+  if(window.matchMedia){
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    (mq.addEventListener ? mq.addEventListener.bind(mq,'change') : mq.addListener.bind(mq))(draw);
+  }
+})();
+</script>
