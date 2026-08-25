@@ -121,3 +121,39 @@ def test_yaml_rejects_unknown_keys(tmp_path):
     path.write_text("name: x\nnot_a_field: 1\n")
     with pytest.raises(KeyError, match="unknown config keys"):
         ExperimentConfig.from_yaml(path)
+
+
+def test_joint_metrics_are_computed_under_cv():
+    """CV is the recommended protocol; joint metrics must not be skipped there."""
+    result = run_experiment(
+        _cfg(protocol="cv", n_folds=4, n_joint_samples=4, models={
+            "prevalence": {},
+            "flow_discrete": {"epochs": 8, "patience": 3, "width": 32, "depth": 2},
+        })
+    )
+    for name in ("prevalence", "flow_discrete"):
+        assert "joint" in result.metrics[name], name
+        assert "phi_corr" in result.metrics[name]["joint"]
+    assert result.metrics["flow_discrete"]["is_generative"] is True
+    assert result.metrics["prevalence"]["is_generative"] is False
+
+
+def test_joint_metrics_are_computed_under_holdout():
+    result = run_experiment(_cfg(protocol="holdout", n_joint_samples=4))
+    assert "joint" in result.metrics["prevalence"]
+
+
+def test_clinical_operating_points_reach_the_result():
+    result = run_experiment(_cfg(protocol="holdout"))
+    assert not result.clinical.empty
+    assert {"gene", "ppv", "sensitivity", "lift_over_prevalence"} <= set(
+        result.clinical.columns
+    )
+    for m in result.metrics.values():
+        assert "clinical" in m
+        assert 0.0 <= m["clinical"]["mean_ppv"] <= 1.0
+
+
+def test_clinical_table_is_saved(tmp_path):
+    result = run_experiment(_cfg(protocol="holdout", output_dir=str(tmp_path)))
+    assert (result.save() / "clinical_operating_points.csv").exists()

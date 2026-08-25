@@ -1,0 +1,33 @@
+# Run on a cohort exported from a real study with:
+#   python -m missing_piece export data/msk_chord_2024 -o cohort_nsclc.npz
+#
+# The .npz carries the binary alteration matrices, gene names and covariates --
+# a couple of megabytes, no free text, no dates. Everything downstream is
+# identical to running against the study directory.
+name: msk_chord_exported
+cohort_file: cohort_nsclc.npz
+
+protocol: cv
+n_folds: 5
+n_repeats: 1
+seed: 0
+
+models:
+  prevalence: {}
+  burden: {}
+  logistic: {}
+  mlp: {epochs: 200, patience: 20}
+  flow_discrete: {epochs: 250, patience: 30, width: 512, depth: 4}
+  flow_gaussian:
+    epochs: 250
+    patience: 30
+    width: 512
+    depth: 4
+    n_samples_for_marginals: 128
+    n_sampling_steps: 50
+
+min_positives_for_gene_auroc: 5
+n_bootstrap: 500
+n_permutations: 300
+n_joint_samples: 20
+output_dir: results

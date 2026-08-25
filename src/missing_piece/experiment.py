@@ -32,6 +32,7 @@ import pandas as pd
 from .data.cohort import NSCLC_ONCOTREE_CODES, Cohort, build_cohort
 from .data.simulate import SimulationConfig, simulate_cohort
 from .data.splits import SplitSpec, make_splits
+from .eval.clinical import clinical_summary
 from .eval.joint import evaluate_joint
 from .eval.metrics import (
     bootstrap_metric,
@@ -55,7 +56,8 @@ class ExperimentConfig:
 
     name: str = "panel_completion"
 
-    # --- data source: `study_dir` for real data, else the simulator --------
+    # --- data source: first of `cohort_file`, `study_dir`, else the simulator
+    cohort_file: str | None = None
     study_dir: str | None = None
     panel_dir: str | None = None
     observed_panel: str = "IMPACT341"
@@ -89,6 +91,7 @@ class ExperimentConfig:
     n_bootstrap: int = 400
     n_permutations: int = 200
     n_joint_samples: int = 20
+    clinical_flag_fractions: tuple = (0.05, 0.10, 0.20)
     reference_model: str = "prevalence"
     burden_reference_model: str = "burden"
     seed: int = 0
@@ -117,6 +120,7 @@ class ExperimentResult:
     metrics: dict[str, dict]
     per_gene: pd.DataFrame
     provenance: dict
+    clinical: pd.DataFrame = field(default_factory=pd.DataFrame)
 
     def table(self) -> pd.DataFrame:
         rows = []
@@ -159,8 +163,36 @@ class ExperimentResult:
         )
         self.table().to_csv(directory / "summary.csv", index=False)
         self.per_gene.to_csv(directory / "per_gene_auroc.csv", index=False)
+        if not self.clinical.empty:
+            self.clinical.to_csv(directory / "clinical_operating_points.csv", index=False)
         (directory / "summary.txt").write_text(self.render())
         return directory
+
+    def _power_note(self) -> list[str]:
+        """Explain a NaN macro AUROC instead of leaving the reader to guess."""
+        scored = [m.get("n_genes_scored", 0) for m in self.metrics.values()]
+        if not scored or max(scored) > 0:
+            total = self.provenance.get("n_target_genes_total")
+            best = max(scored) if scored else 0
+            if total and best < 0.5 * total:
+                return [
+                    "",
+                    f"NOTE: only {best} of {total} target genes had enough positives to",
+                    f"      score (>= {self.config.min_positives_for_gene_auroc}). The macro average"
+                    " therefore describes",
+                    "      the commoner genes only. Use protocol: cv to raise the count.",
+                ]
+            return []
+        return [
+            "",
+            "WARNING: macro AUROC is undefined -- NO target gene had at least",
+            f"         {self.config.min_positives_for_gene_auroc} positives in the evaluation set.",
+            "         This is a power problem, not a model failure: at this prevalence",
+            "         the evaluation set is too small to estimate any per-gene AUROC.",
+            "         Use protocol: cv (pools out-of-fold predictions over every",
+            "         patient), or lower min_positives_for_gene_auroc knowing the",
+            "         per-gene estimates will be very noisy.",
+        ]
 
     def render(self) -> str:
         return "\n".join(
@@ -181,6 +213,7 @@ class ExperimentResult:
                 "",
                 "## Results",
                 self.table().to_string(index=False, float_format=lambda v: f"{v:.4f}"),
+                *self._power_note(),
                 "",
                 "## Reading the columns",
                 "macro_auroc    per-gene AUROC averaged over scoreable genes. Prevalence-free:",
@@ -202,6 +235,14 @@ class ExperimentResult:
 
 def _load_cohort(cfg: ExperimentConfig) -> tuple[Cohort, dict]:
     provenance: dict = {}
+
+    if cfg.cohort_file:
+        from .export import load_exported_cohort
+
+        cohort = load_exported_cohort(cfg.cohort_file)
+        provenance["cohort_file"] = cfg.cohort_file
+        provenance["cohort_provenance"] = cohort.provenance
+        return cohort, provenance
 
     if cfg.study_dir:
         from .data.cbioportal import StudyFiles, build_alteration_matrix
@@ -267,7 +308,25 @@ def _predictions_holdout(
         log.info("[holdout] fitting %s", name)
         p, s, model = _fit_predict(name, spec, splits.train, splits.val, splits.test)
         probs[name], seconds[name], models[name] = p, s, model
-    return y, probs, seconds, {"test": splits.test, "models": models}, splits.summary()
+    joint, generative = {}, {}
+    if cfg.n_joint_samples:
+        for name, model in models.items():
+            joint[name] = model.sample(
+                splits.test, n_samples=cfg.n_joint_samples, seed=cfg.seed
+            )
+            generative[name] = model.is_generative
+    return (
+        y,
+        probs,
+        seconds,
+        {
+            "test": splits.test,
+            "models": models,
+            "joint": joint,
+            "generative": generative,
+        },
+        splits.summary(),
+    )
 
 
 def _align_fold_levels(
@@ -309,6 +368,10 @@ def _predictions_cv(
 
     acc = {name: np.zeros((n, y.shape[1])) for name in cfg.models}
     seconds = {name: 0.0 for name in cfg.models}
+    joint = {
+        name: np.zeros((cfg.n_joint_samples, n, y.shape[1])) for name in cfg.models
+    } if cfg.n_joint_samples else {}
+    generative: dict[str, bool] = {}
 
     # Stratify folds on observed-panel burden, mirroring the holdout splitter.
     burden = cohort.observed.sum(axis=1).to_numpy(dtype=float)
@@ -333,9 +396,19 @@ def _predictions_cv(
             test = cohort.subset(list(ids[test_mask]))
             for name, spec in cfg.models.items():
                 log.info("[cv r%d f%d] fitting %s", repeat, fold, name)
-                p, s, _ = _fit_predict(name, spec, train, val, test)
+                p, s, model = _fit_predict(name, spec, train, val, test)
                 repeat_pred[name][test_mask] = p
                 seconds[name] += s
+                # Joint samples must be out-of-fold too: each fold's model draws
+                # profiles for the patients it did not see. Collected on the
+                # first repeat only -- these are draws, not scores, so averaging
+                # them across repeats would destroy the joint structure being
+                # measured.
+                if cfg.n_joint_samples and repeat == 0:
+                    joint[name][:, test_mask, :] = model.sample(
+                        test, n_samples=cfg.n_joint_samples, seed=cfg.seed
+                    )
+                    generative[name] = model.is_generative
 
         for name in cfg.models:
             acc[name] += (
@@ -351,7 +424,13 @@ def _predictions_cv(
         f"fold-level alignment: {'on' if cfg.align_folds else 'OFF'}\n"
         f"target sparsity {cohort.target_sparsity():.4%}"
     )
-    return y, probs, seconds, {"test": cohort, "models": {}}, summary
+    return (
+        y,
+        probs,
+        seconds,
+        {"test": cohort, "models": {}, "joint": joint, "generative": generative},
+        summary,
+    )
 
 
 def run_experiment(cfg: ExperimentConfig) -> ExperimentResult:
@@ -366,6 +445,7 @@ def run_experiment(cfg: ExperimentConfig) -> ExperimentResult:
 
     metrics: dict[str, dict] = {}
     per_gene_frames: list[pd.DataFrame] = []
+    clinical_frames: list[pd.DataFrame] = []
 
     for name, p in probs.items():
         result = evaluate_predictions(
@@ -395,15 +475,34 @@ def run_experiment(cfg: ExperimentConfig) -> ExperimentResult:
                 seed=cfg.seed,
             )
 
-        model = context["models"].get(name)
-        if cfg.n_joint_samples and model is not None:
-            samples = model.sample(
-                test_cohort, n_samples=cfg.n_joint_samples, seed=cfg.seed
-            )
+        samples = context.get("joint", {}).get(name)
+        if samples is not None and samples.size:
             m["joint"] = evaluate_joint(y, samples)
-            m["is_generative"] = model.is_generative
-            if not model.is_generative:
+            m["is_generative"] = context.get("generative", {}).get(name, False)
+            if not m["is_generative"]:
                 m["joint"]["note"] = "independent draws from predicted marginals"
+
+        if cfg.clinical_flag_fractions:
+            per_gene_clin = clinical_summary(
+                y,
+                p,
+                gene_names=list(gene_names),
+                flag_fractions=tuple(cfg.clinical_flag_fractions),
+                min_positives=cfg.min_positives_for_gene_auroc,
+            )
+            clinical_frames.append(per_gene_clin.assign(model=name))
+            # Headline the tightest budget: if a clinician can reflex-sequence
+            # only a small slice of patients, this is what they would gain.
+            if not per_gene_clin.empty:
+                tightest = per_gene_clin["flag_fraction"].min()
+                at = per_gene_clin[per_gene_clin["flag_fraction"] == tightest]
+                m["clinical"] = {
+                    "flag_fraction": float(tightest),
+                    "mean_ppv": float(at["ppv"].mean()),
+                    "mean_sensitivity": float(at["sensitivity"].mean()),
+                    "mean_lift_over_prevalence": float(at["lift_over_prevalence"].mean()),
+                    "n_genes": int(len(at)),
+                }
 
         metrics[name] = m
         per_gene_frames.append(
@@ -443,4 +542,9 @@ def run_experiment(cfg: ExperimentConfig) -> ExperimentResult:
         metrics=metrics,
         per_gene=pd.concat(per_gene_frames, ignore_index=True),
         provenance=provenance,
+        clinical=(
+            pd.concat(clinical_frames, ignore_index=True)
+            if clinical_frames
+            else pd.DataFrame()
+        ),
     )

@@ -90,6 +90,38 @@ def _cmd_controls(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_inspect(args: argparse.Namespace) -> int:
+    from .inspect_study import inspect_study
+
+    report = inspect_study(
+        args.study_dir,
+        panel_dir=args.panel_dir,
+        observed_panel=args.observed,
+        target_panel=args.target,
+        restrict_to_nsclc=not args.all_cancer_types,
+    )
+    print(report)
+    if args.out:
+        Path(args.out).write_text(report)
+        print(f"\nwritten to {args.out}", file=sys.stderr)
+    return 0 if "FATAL" not in report else 1
+
+
+def _cmd_export(args: argparse.Namespace) -> int:
+    from .export import export_cohort
+
+    path = export_cohort(
+        args.study_dir,
+        out_path=args.out,
+        panel_dir=args.panel_dir,
+        observed_panel=args.observed,
+        target_panel=args.target,
+        restrict_to_nsclc=not args.all_cancer_types,
+    )
+    print(f"wrote {path} ({path.stat().st_size / 1e6:.1f} MB)")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="missing_piece", description=__doc__)
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -108,6 +140,28 @@ def build_parser() -> argparse.ArgumentParser:
     panels.add_argument("--target", default="IMPACT505")
     panels.add_argument("--list-target-genes", action="store_true")
     panels.set_defaults(func=_cmd_panels)
+
+    inspect = sub.add_parser(
+        "inspect", help="check a study directory loads correctly (run this first)"
+    )
+    inspect.add_argument("study_dir", type=Path)
+    inspect.add_argument("--panel-dir", type=Path)
+    inspect.add_argument("--observed", default="IMPACT341")
+    inspect.add_argument("--target", default="IMPACT505")
+    inspect.add_argument("--all-cancer-types", action="store_true")
+    inspect.add_argument("--out", help="also write the report to this file")
+    inspect.set_defaults(func=_cmd_inspect)
+
+    export = sub.add_parser(
+        "export", help="write the derived cohort as a single portable file"
+    )
+    export.add_argument("study_dir", type=Path)
+    export.add_argument("-o", "--out", default="cohort_nsclc.npz")
+    export.add_argument("--panel-dir", type=Path)
+    export.add_argument("--observed", default="IMPACT341")
+    export.add_argument("--target", default="IMPACT505")
+    export.add_argument("--all-cancer-types", action="store_true")
+    export.set_defaults(func=_cmd_export)
 
     controls = sub.add_parser("controls", help="run the negative-control battery")
     controls.add_argument("--n-patients", type=int, default=2226)
