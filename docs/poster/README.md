@@ -2,39 +2,65 @@
 
 `poster.html` is authored 1:1 in millimetres at 1450 × 1150 mm.
 
-## Printing
+## Getting a PDF
 
-Open in Chrome → **Print** → *Save as PDF*, with:
+`poster.pdf` in this folder is ready to send to the printer: one page, exactly
+1450 × 1150 mm. **Send the PDF, never the HTML.**
 
-- **Paper size:** custom 1450 × 1150 mm (or "Manage custom sizes")
-- **Scale:** 100% — **not** "Fit to page", which silently shrinks everything
-- **Margins:** None
-- **Background graphics:** ON, or every panel header prints white-on-white
+After editing your numbers, regenerate it:
 
-The `@page` rule already declares the size, so most print dialogs pick it up.
-Send the resulting PDF to the printer — do not send the HTML.
+```bash
+python scripts/poster_to_pdf.py            # writes docs/poster/poster.pdf
+python scripts/poster_to_pdf.py --check    # verify size and page count only
+```
 
-## Before you print
+This drives the export headlessly, so the page size is passed explicitly and the
+result is verified before you get it. That matters: browsers are inconsistent
+about honouring a custom `@page` size, and "Fit to page" silently rescales a
+1.45 m board down to A4.
 
-Every value I could not verify is marked with a **red dashed box**. They are
-deliberately loud so a placeholder can never be mistaken for a result. Search the
-file for `class="slot"` to find all of them:
+If you would rather print from the browser: Chrome → **Print** → *Save as PDF*,
+paper size custom 1450 × 1150 mm, **Scale 100%** (not "Fit to page"), margins
+None, **Background graphics ON** — otherwise every panel header prints
+white-on-white.
 
-| Slot | What to enter |
+## Filling in your numbers
+
+Open `poster.html` in any text editor. Near the top there is a single block
+marked **FILL IN YOUR NUMBERS HERE** — that is the only part you edit:
+
+```js
+const POSTER = {
+  esmoId:        "1234P",
+  results: [
+    { model: "Flow matching",  macro: 0.731, ci: "0.716–0.747" },
+    ...
+  ],
+  deltaVsBurden: "+0.106",
+  nGenesScored:  138,
+  ...
+};
+```
+
+Anything left as `null` keeps its red dashed placeholder, so a value you forgot
+can never print as if it were a result. The on-screen bar tells you how many are
+still outstanding. Bar widths in the results table are computed from the macro
+AUROC you enter, so the chance hairline lines up by construction.
+
+What each field wants:
+
+| Field | Where it comes from |
 |---|---|
-| ESMO ID | your abstract number |
-| confirm split | the split actually used (the abstract's 75/15/15 sums to 105%) |
-| Macro AUROC ×3 + CIs | from `results/<run>/summary.csv` |
-| Δ vs burden-only | `d_vs_burden` for your best model |
-| n genes | `genes` column — how many of 164 were scoreable |
-| top genes | best per-gene AUROC from `per_gene_auroc.csv` |
-| p-value | `perm_p` |
-| per_gene.png | drop the figure from `scripts/make_figures.py` |
-| references ×3 | MSK-CHORD, MSK-IMPACT, flow matching |
-| disclosures | conflicts and funding, or "none declared" |
-
-Also replace the bar widths in the Results table (`style="width:78%"` etc.) with
-your measured macro AUROC values — they are illustrative until then.
+| `esmoId` | your abstract number |
+| `split` / `splitConfirmed` | the split actually used — the abstract's 75/15/15 sums to 105%. Set `splitConfirmed: true` to remove the warning |
+| `results[].macro` / `.ci` | `macro_auroc`, `ci_lo`–`ci_hi` in `results/<run>/summary.csv` |
+| `deltaVsBurden` | `d_vs_burden` for your best model |
+| `nGenesScored` | the `genes` column — how many of 164 were scoreable |
+| `topGenes` | highest `auroc` rows in `per_gene_auroc.csv` |
+| `permP` | `perm_p` |
+| `perGeneFigure` | `"per_gene.png"`, copied next to `poster.html` |
+| `ref1`–`ref3` | MSK-CHORD, MSK-IMPACT, flow matching |
+| `disclosures` | conflicts and funding, or `"None declared."` |
 
 ## Generating the numbers
 
@@ -45,6 +71,14 @@ python scripts/make_figures.py results/msk_chord_nsclc
 ```
 
 `summary.csv` maps directly onto the Results and Effect size panels.
+
+For the clinical framing, add an actionable-gene list and per-gene FDR to the
+config before running:
+
+```yaml
+actionable_genes_file: panels/actionable_nsclc_example.txt   # replace with yours
+per_gene_permutations: 300
+```
 
 ## Layout
 

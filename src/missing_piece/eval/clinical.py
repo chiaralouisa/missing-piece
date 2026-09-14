@@ -17,15 +17,97 @@ These functions answer the questions that actually gate deployment:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
 __all__ = [
+    "load_actionable_genes",
+    "actionable_subset_report",
     "operating_points",
     "net_benefit",
     "decision_curve",
     "clinical_summary",
 ]
+
+
+def load_actionable_genes(path: str | Path) -> set[str]:
+    """Read a list of clinically actionable gene symbols, one per line.
+
+    Deliberately a plain text file rather than a bundled list: actionability is
+    tumour-type specific and changes as approvals land, so it is data the user
+    supplies and versions, not a constant baked into this package. Export it
+    from OncoKB (Level 1/2 for NSCLC) or your own molecular tumour board list.
+    Blank lines and ``#`` comments are ignored.
+    """
+    text = Path(path).read_text(encoding="utf-8", errors="replace")
+    genes = set()
+    for line in text.splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            genes.add(line.upper())
+    if not genes:
+        raise ValueError(f"{path} contained no gene symbols")
+    return genes
+
+
+def actionable_subset_report(
+    y_true,
+    y_prob,
+    gene_names,
+    actionable: set[str],
+    min_positives: int = 5,
+    flag_fractions: tuple[float, ...] = (0.05, 0.10, 0.20),
+) -> dict:
+    """Restrict the evaluation to genes that could change a treatment decision.
+
+    A macro AUROC over 164 genes of mixed clinical relevance is not a clinical
+    result: it is dominated by genes no oncologist would act on. This reports
+    the same metrics over the actionable subset only, which is the number that
+    belongs in a clinical claim.
+    """
+    from .metrics import auroc_columnwise
+
+    y = np.asarray(y_true, dtype=float)
+    p = np.asarray(y_prob, dtype=float)
+    names = [g.upper() for g in gene_names]
+    keep = np.array([g in actionable for g in names], dtype=bool)
+
+    matched = sorted({g for g in names if g in actionable})
+    missing = sorted(actionable - set(names))
+    if not keep.any():
+        return {
+            "n_actionable_in_panel": 0,
+            "matched_genes": [],
+            "unmatched_actionable_genes": missing[:50],
+            "note": "no actionable gene overlaps the target panel",
+        }
+
+    auroc = auroc_columnwise(y[:, keep], p[:, keep], min_positives=min_positives)
+    table = clinical_summary(
+        y[:, keep], p[:, keep],
+        gene_names=[g for g, k in zip(names, keep) if k],
+        flag_fractions=flag_fractions,
+        min_positives=min_positives,
+    )
+    tightest = float(table["flag_fraction"].min()) if not table.empty else float("nan")
+    at = table[table["flag_fraction"] == tightest] if not table.empty else table
+
+    return {
+        "n_actionable_in_panel": int(keep.sum()),
+        "n_scoreable": int(np.isfinite(auroc).sum()),
+        "macro_auroc_actionable": (
+            float(np.nanmean(auroc)) if np.isfinite(auroc).any() else float("nan")
+        ),
+        "matched_genes": matched,
+        "unmatched_actionable_genes": missing[:50],
+        "flag_fraction": tightest,
+        "mean_ppv": float(at["ppv"].mean()) if not at.empty else float("nan"),
+        "mean_sensitivity": float(at["sensitivity"].mean()) if not at.empty else float("nan"),
+        "mean_lift": float(at["lift_over_prevalence"].mean()) if not at.empty else float("nan"),
+        "per_gene": table,
+    }
 
 
 def _as_1d(y, p) -> tuple[np.ndarray, np.ndarray]:

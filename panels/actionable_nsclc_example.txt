@@ -1,0 +1,24 @@
+# Clinically actionable genes in NSCLC — EXAMPLE ONLY, NOT A CURATED LIST.
+#
+# Replace this file with an export from OncoKB (Level 1/2 for NSCLC) or your
+# institution's molecular tumour board list. Actionability is tumour-type
+# specific and changes as approvals land, so it is deliberately data you supply
+# and version, not a constant baked into the package.
+#
+# One HUGO symbol per line. Blank lines and '#' comments are ignored.
+EGFR
+ALK
+ROS1
+BRAF
+MET
+RET
+NTRK1
+NTRK2
+NTRK3
+ERBB2
+KRAS
+NRG1
+FGFR1
+PIK3CA
+STK11
+KEAP1

@@ -31,13 +31,17 @@ pipeline reports:
 
 | metric | value under zero signal |
 |---|---|
-| pooled AUROC | **0.795** |
-| within-patient AUROC | **0.809** |
+| pooled AUROC | **0.749** |
+| within-patient AUROC | **0.751** |
 | macro (per-gene) AUROC | **0.500** |
 
-Pooled AUROC of 0.795 with nothing to find sits inside the abstract's reported
-0.77–0.79 range. If the reported figure is pooled, it is consistent with a real
-effect *and equally consistent with none*.
+Pooled AUROC of ~0.75 with *nothing to find* is the same order as the abstract's
+reported 0.77–0.79. (Its exact value depends on how gene prevalences are spread,
+which is a modelling choice: earlier simulator settings put it at 0.795, inside
+the reported range.) The point does not rest on the third decimal — it is that a
+model which never looks at the patient scores in the high 0.7s on this metric,
+so a pooled figure in that range is consistent with a real effect *and equally
+consistent with none*.
 
 **What to do.** Report **macro (per-gene) AUROC** as the headline: it averages
 AUROC computed within each gene, so a patient-blind model scores exactly 0.5 and
@@ -76,7 +80,7 @@ TMB if you want to be generous to it). Report **macro AUROC minus burden
 baseline** as the primary effect size. This repository does that as
 `d_vs_burden` and runs a `burden_only` simulation regime confirming that when
 burden is the only channel, nothing beats the burden baseline (best gain
-+0.007).
++0.011).
 
 Chromosomal proximity is a smaller version of the same issue: arm-level copy
 number events co-occur because genes sit on the same arm. If CNAs drive much of
@@ -193,8 +197,9 @@ Per-gene AUROC scores **marginals**: P(gene g altered | observed panel), one
 gene at a time. A discriminative multi-label classifier optimises exactly that
 objective, so on this metric it is the ceiling, not the comparison. Measured on
 the `full` regime under 5-fold CV, *both* discriminative baselines beat *both*
-flow-matching variants on macro AUROC (logistic 0.732, MLP 0.727, discrete flow
-0.690, Gaussian flow 0.655).
+flow-matching variants on macro AUROC (logistic 0.716, MLP 0.704, discrete flow
+0.679, Gaussian flow 0.656). Note these models are **untuned** — see the
+open-items list at the end.
 
 That is not an argument against the generative framing — it is an argument that
 the framing needs a metric that reflects it. What a generative model uniquely
@@ -272,17 +277,20 @@ any claim about MSK-CHORD.
 
 | model | macro AUROC [95% CI] | Δ vs burden | pooled | pooled adj. | genes scored |
 |---|---|---|---|---|---|
-| logistic | 0.732 [0.718, 0.746] | +0.107 | 0.855 | 0.764 | 138 |
-| mlp | 0.727 [0.716, 0.747] | +0.102 | 0.867 | 0.763 | 138 |
-| flow_discrete | 0.690 [0.681, 0.711] | +0.065 | 0.847 | 0.723 | 138 |
-| flow_gaussian | 0.655 [0.642, 0.671] | +0.030 | 0.812 | 0.695 | 138 |
-| burden | 0.625 [0.612, 0.639] | 0.000 | 0.824 | 0.629 | 138 |
-| prevalence | **0.500** [0.500, 0.500] | -0.125 | **0.803** | 0.500 | 138 |
+| logistic | 0.716 [0.704, 0.726] | +0.110 | 0.816 | 0.753 | 138 |
+| mlp | 0.704 [0.688, 0.714] | +0.098 | 0.830 | 0.744 | 138 |
+| flow_discrete | 0.679 [0.664, 0.690] | +0.073 | 0.811 | 0.712 | 138 |
+| flow_gaussian | 0.656 [0.640, 0.667] | +0.051 | 0.762 | 0.680 | 138 |
+| burden | 0.606 [0.594, 0.620] | 0.000 | 0.773 | 0.632 | 138 |
+| prevalence | **0.500** [0.500, 0.500] | −0.106 | **0.749** | 0.500 | 138 |
 
-Read the last row first. A model that never looks at the patient scores **0.803
-pooled** — inside the abstract's reported range — and **0.500** on every metric
-that has had the prevalence channel removed. That contrast is the whole point of
-this table.
+Read the last row first. A model that never looks at the patient scores **0.749
+pooled** and **0.500** on every metric that has had the prevalence channel
+removed. That contrast is the whole point of this table.
+
+(Cohort: the simulator now includes arm-level copy-number blocks and mutually
+exclusive driver groups, so these differ slightly from earlier runs. The
+ordering and every conclusion below are unchanged.)
 
 ---
 
@@ -302,6 +310,37 @@ For each model, on held-out patients:
 | co-occurrence fidelity, burden KS | what the generative model is actually for |
 
 All of these are produced by `python -m missing_piece run`.
+
+---
+
+## Open items
+
+Implemented since the first review:
+
+- **Multiple-testing control.** Per-gene permutation tests with Benjamini-Hochberg
+  FDR (`per_gene_permutation_test`). At 164 hypotheses and α = 0.05, roughly
+  eight genes clear the bar by chance — enough to fill a "genes we can predict"
+  shortlist entirely with noise. Set `per_gene_permutations` in the config.
+- **Actionable-gene analysis.** `actionable_subset_report` restricts macro AUROC,
+  PPV and lift to genes that could change a treatment decision. Supply your own
+  list via `actionable_genes_file` (see `panels/actionable_nsclc_example.txt`) —
+  actionability is tumour-type specific and moves with approvals, so it is data
+  you version rather than a constant in the package.
+- **Simulator realism.** Arm-level copy-number blocks (genes near each other are
+  co-altered for positional reasons, a confound distinct from co-mutation) and
+  mutually exclusive driver groups (negative co-occurrence, the signature of a
+  driver landscape). Cross-panel exclusivity suppresses the *target* gene only,
+  so the model's inputs stay identical across regimes and the negative controls
+  remain interpretable.
+
+Still open:
+
+- **No hyperparameter tuning.** Every model runs at hand-set defaults, so the
+  flow-vs-discriminative ordering is provisional: the flow models may simply be
+  undertrained. Do a matched search before drawing any architectural conclusion
+  from it.
+- **No external validation.** GENIE is the natural held-out cohort.
+- **No real-data run.** See the closing section.
 
 ---
 

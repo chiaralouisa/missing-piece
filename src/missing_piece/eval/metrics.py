@@ -48,6 +48,8 @@ import numpy as np
 from scipy.stats import rankdata
 
 __all__ = [
+    "benjamini_hochberg",
+    "per_gene_permutation_test",
     "quantize_by_column",
     "residualize_by_gene",
     "auroc_columnwise",
@@ -312,6 +314,81 @@ def evaluate_predictions(
         per_gene_ap=per_gene_ap,
         gene_names=tuple(gene_names) if gene_names is not None else (),
     )
+
+
+def benjamini_hochberg(p_values, alpha: float = 0.05) -> dict:
+    """Benjamini-Hochberg FDR control over the per-gene tests.
+
+    164 genes means 164 hypotheses. At alpha = 0.05 roughly eight genes clear
+    the bar by chance alone, which is enough to populate a "genes we can
+    predict" list entirely with noise. BH controls the expected proportion of
+    false discoveries among the genes reported, which is the right error rate
+    when the output is a shortlist rather than a single decision.
+
+    NaN p-values (genes with too few positives to test) are carried through as
+    NaN and excluded from the correction, so they cannot inflate the ranking.
+    """
+    p = np.asarray(p_values, dtype=float)
+    finite = np.isfinite(p)
+    q = np.full(p.shape, np.nan)
+
+    tested = p[finite]
+    n = tested.size
+    if n == 0:
+        return {"q_values": q, "n_tested": 0, "n_significant": 0, "alpha": alpha}
+
+    order = np.argsort(tested)
+    ranked = tested[order]
+    # q_(i) = min over j >= i of  n/j * p_(j)   -- enforced by a reverse cumulative min
+    scaled = ranked * n / np.arange(1, n + 1)
+    q_sorted = np.minimum.accumulate(scaled[::-1])[::-1]
+    q_sorted = np.clip(q_sorted, 0.0, 1.0)
+
+    q_tested = np.empty(n)
+    q_tested[order] = q_sorted
+    q[finite] = q_tested
+
+    return {
+        "q_values": q,
+        "n_tested": int(n),
+        "n_significant": int((q_tested <= alpha).sum()),
+        "alpha": alpha,
+    }
+
+
+def per_gene_permutation_test(
+    y_true, y_score, n_permutations: int = 500, seed: int = 0, min_positives: int = 5
+) -> dict:
+    """Permutation test per gene, with BH correction across genes.
+
+    The cohort-level permutation test says *some* gene is predictable. Naming
+    *which* genes needs a test per gene, and therefore a correction.
+    """
+    y = _as_float_matrix(y_true)
+    s = _as_float_matrix(y_score)
+    rng = np.random.default_rng(seed)
+
+    observed = auroc_columnwise(y, s, min_positives=min_positives)
+    n_rows = y.shape[0]
+    ge = np.zeros(y.shape[1])
+    valid = np.zeros(y.shape[1])
+    for _ in range(n_permutations):
+        permuted = auroc_columnwise(y, s[rng.permutation(n_rows)], min_positives=min_positives)
+        ok = np.isfinite(permuted) & np.isfinite(observed)
+        ge[ok] += permuted[ok] >= observed[ok]
+        valid[ok] += 1
+
+    with np.errstate(invalid="ignore", divide="ignore"):
+        p = (1.0 + ge) / (1.0 + valid)
+    p[~np.isfinite(observed)] = np.nan
+    bh = benjamini_hochberg(p)
+    return {
+        "auroc": observed,
+        "p_values": p,
+        "q_values": bh["q_values"],
+        "n_tested": bh["n_tested"],
+        "n_significant": bh["n_significant"],
+    }
 
 
 def bootstrap_metric(

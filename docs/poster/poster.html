@@ -190,19 +190,57 @@ td.n{white-space:nowrap}
 
 @media print{
   @page{size:1450mm 1150mm;margin:0}
-  html,body{background:#fff}
+  html,body{background:#fff;margin:0;padding:0}
   #bar{display:none}
-  #stage{padding:0}
-  .poster{box-shadow:none;transform:none !important}
+  /* The preview sets an inline height on #stage to reserve room for the
+     scaled board. Left in place it adds a second, blank page. */
+  #stage{padding:0 !important;height:auto !important;display:block !important}
+  .poster{box-shadow:none;transform:none !important;margin:0}
 }
 </style>
+
+<script>
+/* ==========================================================================
+   FILL IN YOUR NUMBERS HERE — this is the only block you need to edit.
+   Anything left as null keeps its red dashed placeholder on the board, so a
+   value you forgot can never print as if it were a result.
+   Numbers come from:  results/<run>/summary.csv  and  per_gene_auroc.csv
+   ========================================================================== */
+const POSTER = {
+
+  esmoId:          null,          // e.g. "1234P"
+  split:           "70 / 15 / 15",
+  splitConfirmed:  null,          // set to true once you've confirmed the split
+
+  // One row per model. macro = macro (per-gene) AUROC; ci = "0.71–0.75".
+  results: [
+    { model: "Flow matching",   macro: null,  ci: null              },
+    { model: "Multi-label NN",  macro: null,  ci: null              },
+    { model: "Burden only",     macro: null,  ci: "reference"       },
+    { model: "Prevalence only", macro: 0.500, ci: "by construction" },
+  ],
+
+  aurocReported:   "0.77–0.79",   // as stated in the abstract
+  deltaVsBurden:   null,          // e.g. "+0.09"  <- the number that carries the claim
+  nGenesScored:    null,          // e.g. 138      <- of 164
+  topGenes:        null,          // e.g. "MET, RBM10, SMARCA4"
+  permP:           null,          // e.g. "< 0.001"
+
+  perGeneFigure:   null,          // e.g. "per_gene.png" (place next to this file)
+
+  ref1:            null,          // MSK-CHORD citation
+  ref2:            null,          // MSK-IMPACT citation
+  ref3:            null,          // flow-matching citation
+  disclosures:     null,          // conflicts + funding, or "None declared."
+};
+</script>
 
 <div id="bar">
   <b>ESMO poster — 145 × 115 cm</b>
   <span>Print to PDF at 100% scale. Do not "fit to page".</span>
   <button onclick="window.print()">Print / Save PDF</button>
   <span id="zoom"></span>
-  <span style="color:#E4897F">Red dashed boxes = values to fill in before printing.</span>
+  <span id="slotcount" style="color:#E4897F">Red dashed boxes = values to fill in before printing.</span>
 </div>
 
 <div id="stage">
@@ -223,7 +261,7 @@ td.n{white-space:nowrap}
     </div>
     <div class="idbox">
       <dl>
-        <dt>Abstract</dt><dd><span class="slot">ESMO ID</span></dd>
+        <dt>Abstract</dt><dd><span class="slot" data-fill="esmoId">ESMO ID</span></dd>
         <dt>Cohort</dt><dd>MSK-CHORD · NSCLC</dd>
         <dt>Task</dt><dd>IMPACT341 → IMPACT505</dd>
         <dt>Code</dt><dd style="font-size:15pt;font-family:'JetBrains Mono',monospace">github.com/chiaralouisa/<br>missing-piece</dd>
@@ -340,8 +378,8 @@ td.n{white-space:nowrap}
         <h2>Protocol</h2>
         <ul>
           <li>Patient-level split, stratified on observed-panel burden:
-              <strong>70&thinsp;/&thinsp;15&thinsp;/&thinsp;15</strong>
-              <span class="slot">confirm split</span></li>
+              <strong data-fill="split">70&thinsp;/&thinsp;15&thinsp;/&thinsp;15</strong>
+              <span class="slot" data-fill="splitConfirmed">confirm split</span></li>
           <li>AUROC as primary metric, computed <strong>per gene</strong> then averaged</li>
           <li>Bootstrap confidence intervals resampled at patient level</li>
           <li>Permutation test for patient-specific information</li>
@@ -375,33 +413,34 @@ td.n{white-space:nowrap}
             <tr><th>Model</th><th class="barcell">Macro AUROC</th><th></th><th>95% CI</th></tr>
           </thead>
           <tbody>
-            <tr class="hero">
-              <td>Flow matching</td>
+          <tbody id="resultRows">
+            <tr class="hero" data-row="0">
+              <td data-cell="model">Flow matching</td>
               <td class="barcell"><span class="bar"><i style="width:78%"></i><u></u></span></td>
-              <td class="n"><span class="slot">0.__</span></td>
-              <td class="n"><span class="slot">CI</span></td>
+              <td class="n"><span class="slot" data-cell="macro">0.__</span></td>
+              <td class="n"><span class="slot" data-cell="ci">CI</span></td>
             </tr>
-            <tr>
-              <td>Multi-label NN</td>
+            <tr data-row="1">
+              <td data-cell="model">Multi-label NN</td>
               <td class="barcell"><span class="bar"><i style="width:74%"></i><u></u></span></td>
-              <td class="n"><span class="slot">0.__</span></td>
-              <td class="n"><span class="slot">CI</span></td>
+              <td class="n"><span class="slot" data-cell="macro">0.__</span></td>
+              <td class="n"><span class="slot" data-cell="ci">CI</span></td>
             </tr>
-            <tr class="ref">
-              <td>Burden only</td>
+            <tr class="ref" data-row="2">
+              <td data-cell="model">Burden only</td>
               <td class="barcell"><span class="bar"><i class="ref" style="width:62%"></i><u></u></span></td>
-              <td class="n"><span class="slot">0.__</span></td>
-              <td class="n">reference</td>
+              <td class="n"><span class="slot" data-cell="macro">0.__</span></td>
+              <td class="n" data-cell="ci">reference</td>
             </tr>
-            <tr class="ref">
-              <td>Prevalence only</td>
+            <tr class="ref" data-row="3">
+              <td data-cell="model">Prevalence only</td>
               <td class="barcell"><span class="bar"><i class="ref" style="width:50%"></i><u></u></span></td>
-              <td class="n">0.500</td>
-              <td class="n">by construction</td>
+              <td class="n" data-cell="macro">0.500</td>
+              <td class="n" data-cell="ci">by construction</td>
             </tr>
           </tbody>
         </table>
-        <figcaption>Bars show macro AUROC; the hairline marks chance (0.500). Bar widths are
+        <figcaption id="barNote">Bars show macro AUROC; the hairline marks chance (0.500). Bar widths are
           illustrative until the measured values are entered.</figcaption>
       </section>
 
@@ -410,12 +449,12 @@ td.n{white-space:nowrap}
         <div class="keystrip" style="grid-template-columns:1fr 1fr;gap:7mm;margin-bottom:6mm">
           <div class="tile" style="border-top-color:var(--accent)">
             <div class="k">AUROC reported</div>
-            <div class="v" style="font-size:44pt">0.77–0.79</div>
+            <div class="v" style="font-size:44pt" data-fill="aurocReported">0.77–0.79</div>
             <div class="n">across architecture and training variants</div>
           </div>
           <div class="tile" style="border-top-color:var(--critical)">
             <div class="k">Δ vs burden-only</div>
-            <div class="v" style="font-size:44pt;color:var(--critical)"><span class="slot">+0.__</span></div>
+            <div class="v" style="font-size:44pt;color:var(--critical)"><span class="slot" data-fill="deltaVsBurden">+0.__</span></div>
             <div class="n">gene-specific information added</div>
           </div>
         </div>
@@ -428,7 +467,7 @@ td.n{white-space:nowrap}
 
       <section>
         <h2>Per-gene performance</h2>
-        <div class="figslot">
+        <div class="figslot" id="figSlot">
           <div>
             <b>Drop in</b><br>
             results/&lt;run&gt;/per_gene.png<br>
@@ -442,10 +481,10 @@ td.n{white-space:nowrap}
       <section>
         <h2>Genes recovered</h2>
         <ul>
-          <li><span class="slot">n</span> of 164 target genes had enough positives to
+          <li><span class="slot" data-fill="nGenesScored">n</span> of 164 target genes had enough positives to
               estimate a per-gene AUROC</li>
-          <li>Best-recovered genes: <span class="slot">list top genes</span></li>
-          <li>Permutation test <i>p</i> <span class="slot">p-value</span> for
+          <li>Best-recovered genes: <span class="slot" data-fill="topGenes">list top genes</span></li>
+          <li>Permutation test <i>p</i> <span class="slot" data-fill="permP">p-value</span> for
               patient-specific information</li>
         </ul>
       </section>
@@ -461,14 +500,14 @@ td.n{white-space:nowrap}
         <table>
           <thead><tr><th>Regime</th><th>Pooled</th><th>Macro</th></tr></thead>
           <tbody>
-            <tr><td>No signal</td><td class="n">0.795</td><td class="n">0.500</td></tr>
-            <tr><td>Burden only</td><td class="n">0.803</td><td class="n">0.569</td></tr>
-            <tr><td>True signal</td><td class="n">0.853</td><td class="n">0.761</td></tr>
+            <tr><td>No signal</td><td class="n">0.749</td><td class="n">0.500</td></tr>
+            <tr><td>Burden only</td><td class="n">0.749</td><td class="n">0.569</td></tr>
+            <tr><td>True signal</td><td class="n">0.805</td><td class="n">0.770</td></tr>
           </tbody>
         </table>
         <div class="callout">
           <p>On data containing <strong>no recoverable signal at all</strong>, pooled AUROC
-             still reaches <strong>0.795</strong>, while macro AUROC correctly reads
+             still reaches <strong>0.749</strong>, while macro AUROC correctly reads
              0.500. This is why we report the per-gene average.</p>
         </div>
         <figcaption>Simulated controls validating the evaluation, not results of this study.</figcaption>
@@ -506,14 +545,14 @@ td.n{white-space:nowrap}
     <div>
       <h4>References</h4>
       <ul>
-        <li><span class="slot">Add MSK-CHORD citation (Nature 2024)</span></li>
-        <li><span class="slot">Add MSK-IMPACT citation</span></li>
-        <li><span class="slot">Add flow-matching citation (Lipman et al.)</span></li>
+        <li><span class="slot" data-fill="ref1">Add MSK-CHORD citation (Nature 2024)</span></li>
+        <li><span class="slot" data-fill="ref2">Add MSK-IMPACT citation</span></li>
+        <li><span class="slot" data-fill="ref3">Add flow-matching citation (Lipman et al.)</span></li>
       </ul>
     </div>
     <div>
       <h4>Disclosures &amp; funding</h4>
-      <p><span class="slot">Declare conflicts of interest and funding, or state that none were declared.</span></p>
+      <p><span class="slot" data-fill="disclosures">Declare conflicts of interest and funding, or state that none were declared.</span></p>
       <p>Data: MSK-CHORD, publicly available via cBioPortal under CC BY-NC.</p>
     </div>
     <div>
@@ -548,5 +587,70 @@ td.n{white-space:nowrap}
   window.addEventListener('resize', fit);
   window.addEventListener('load', fit);
   fit();
+})();
+</script>
+
+<script>
+/* Apply POSTER to the board. A null leaves the placeholder untouched. */
+(function(){
+  function setFilled(el, text){
+    el.textContent = text;
+    el.classList.remove('slot');
+  }
+
+  document.querySelectorAll('[data-fill]').forEach(function(el){
+    var v = POSTER[el.getAttribute('data-fill')];
+    if (v === null || v === undefined || v === '') return;
+    if (v === true) { el.remove(); return; }   // splitConfirmed: drop the nag
+    setFilled(el, v);
+  });
+
+  // Results table: text plus a bar whose width is the AUROC itself
+  // (so the 0.500 hairline lines up with the chance marker by construction).
+  (POSTER.results || []).forEach(function(row, i){
+    var tr = document.querySelector('[data-row="' + i + '"]');
+    if (!tr) return;
+    var m = tr.querySelector('[data-cell="model"]');
+    if (m && row.model) m.textContent = row.model;
+
+    var macroEl = tr.querySelector('[data-cell="macro"]');
+    var bar = tr.querySelector('.bar i');
+    if (row.macro !== null && row.macro !== undefined){
+      if (macroEl) setFilled(macroEl, Number(row.macro).toFixed(3));
+      if (bar) bar.style.width = (Math.max(0, Math.min(1, row.macro)) * 100) + '%';
+    }
+    var ciEl = tr.querySelector('[data-cell="ci"]');
+    if (ciEl && row.ci) setFilled(ciEl, row.ci);
+  });
+
+  // Retire the "illustrative" caveat once every bar is a real measurement.
+  var allMeasured = (POSTER.results || []).every(function(r){
+    return r.macro !== null && r.macro !== undefined;
+  });
+  var note = document.getElementById('barNote');
+  if (note && allMeasured){
+    note.textContent = 'Bars show macro (per-gene) AUROC; the hairline marks chance (0.500).';
+  }
+
+  if (POSTER.perGeneFigure){
+    var slot = document.getElementById('figSlot');
+    if (slot){
+      var img = new Image();
+      img.src = POSTER.perGeneFigure;
+      img.alt = 'Per-gene AUROC against gene prevalence';
+      img.style.cssText = 'width:100%;height:auto;display:block';
+      slot.replaceWith(img);
+    }
+  }
+
+  // Count what is still unfilled and say so on screen (never in print).
+  var left = document.querySelectorAll('.poster .slot').length;
+  var warn = document.getElementById('slotcount');
+  if (warn){
+    warn.textContent = left === 0
+      ? 'All values filled — ready to print.'
+      : left + ' value' + (left === 1 ? '' : 's') + ' still to fill in.';
+    warn.style.color = left === 0 ? '#7FD6A6' : '#E4897F';
+  }
 })();
 </script>

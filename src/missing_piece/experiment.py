@@ -32,10 +32,15 @@ import pandas as pd
 from .data.cohort import NSCLC_ONCOTREE_CODES, Cohort, build_cohort
 from .data.simulate import SimulationConfig, simulate_cohort
 from .data.splits import SplitSpec, make_splits
-from .eval.clinical import clinical_summary
+from .eval.clinical import (
+    actionable_subset_report,
+    clinical_summary,
+    load_actionable_genes,
+)
 from .eval.joint import evaluate_joint
 from .eval.metrics import (
     bootstrap_metric,
+    per_gene_permutation_test,
     quantize_by_column,
     evaluate_predictions,
     macro_auroc,
@@ -92,6 +97,8 @@ class ExperimentConfig:
     n_permutations: int = 200
     n_joint_samples: int = 20
     clinical_flag_fractions: tuple = (0.05, 0.10, 0.20)
+    actionable_genes_file: str | None = None
+    per_gene_permutations: int = 0
     reference_model: str = "prevalence"
     burden_reference_model: str = "burden"
     seed: int = 0
@@ -443,6 +450,11 @@ def run_experiment(cfg: ExperimentConfig) -> ExperimentResult:
     test_cohort: Cohort = context["test"]
     gene_names = test_cohort.target.columns
 
+    actionable = (
+        load_actionable_genes(cfg.actionable_genes_file)
+        if cfg.actionable_genes_file
+        else None
+    )
     metrics: dict[str, dict] = {}
     per_gene_frames: list[pd.DataFrame] = []
     clinical_frames: list[pd.DataFrame] = []
@@ -504,6 +516,31 @@ def run_experiment(cfg: ExperimentConfig) -> ExperimentResult:
                     "n_genes": int(len(at)),
                 }
 
+        if actionable:
+            report = actionable_subset_report(
+                y, p, list(gene_names), actionable,
+                min_positives=cfg.min_positives_for_gene_auroc,
+                flag_fractions=tuple(cfg.clinical_flag_fractions),
+            )
+            report.pop("per_gene", None)
+            m["actionable"] = report
+
+        if cfg.per_gene_permutations:
+            pg = per_gene_permutation_test(
+                y, p,
+                n_permutations=cfg.per_gene_permutations,
+                seed=cfg.seed,
+                min_positives=cfg.min_positives_for_gene_auroc,
+            )
+            m["per_gene_fdr"] = {
+                "n_tested": pg["n_tested"],
+                "n_significant_q05": pg["n_significant"],
+            }
+            gene_q = dict(zip(gene_names, pg["q_values"]))
+            gene_p = dict(zip(gene_names, pg["p_values"]))
+        else:
+            gene_q = gene_p = None
+
         metrics[name] = m
         per_gene_frames.append(
             pd.DataFrame(
@@ -514,6 +551,12 @@ def run_experiment(cfg: ExperimentConfig) -> ExperimentResult:
                     "average_precision": result.per_gene_ap,
                     "n_positives": y.sum(axis=0).astype(int),
                     "prevalence": y.mean(axis=0),
+                    "perm_p": (
+                        [gene_p[g] for g in result.gene_names] if gene_p else np.nan
+                    ),
+                    "fdr_q": (
+                        [gene_q[g] for g in result.gene_names] if gene_q else np.nan
+                    ),
                 }
             )
         )

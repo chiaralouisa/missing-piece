@@ -12,8 +12,8 @@ anything, and an evaluation designed so that a null result looks like one.
 > **Read [`docs/methods-review.md`](docs/methods-review.md) first**
 > (also published as a formatted page: [methods review](https://claude.ai/code/artifact/d6825b2d-3c68-46e3-b177-f9fbcaa4df0a)). It documents
 > what this pipeline measured about the abstract's methodology — including the
-> finding that pooled AUROC reaches **0.795 on data containing zero recoverable
-> signal**, which overlaps the abstract's reported 0.77–0.79 range.
+> finding that pooled AUROC reaches **~0.75 on data containing zero recoverable
+> signal** — the same order as the abstract's reported 0.77–0.79 range.
 
 ---
 
@@ -75,7 +75,7 @@ letting them straddle a split scores the model on memorisation.
 
 **AUROC is reported three ways, because they disagree.** Per-gene (macro) AUROC
 is prevalence-free — a patient-blind model scores exactly 0.5. Pooled and
-within-patient AUROC are not, and reach ~0.80 on data with no signal at all.
+within-patient AUROC are not, and reach ~0.75 on data with no signal at all.
 Both are reported beside prevalence-adjusted twins.
 
 **Burden is a baseline, not a result.** A hypermutated tumour has more

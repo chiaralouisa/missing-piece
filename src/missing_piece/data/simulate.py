@@ -74,6 +74,21 @@ class SimulationConfig:
     #: Prevalence heterogeneity across genes (log-normal on the odds scale).
     prevalence_sigma: float = 1.15
 
+    #: Chromosome arms. Copy-number events are arm-scale, so genes on the same
+    #: arm are co-altered for reasons of position rather than biology. This is a
+    #: real confound in panel completion: an arm-level event seen on the small
+    #: panel predicts genes on the same arm off it, without any co-mutation.
+    n_arms: int = 39                      # autosomal p/q arms
+    arm_effect_scale: float = 0.9
+    arm_active_fraction: float = 0.45     # genes whose alteration is arm-driven
+
+    #: Mutually exclusive driver groups (EGFR / KRAS / ALK style). Within a
+    #: group at most one gene is altered per patient, which is the single most
+    #: characteristic structure in an NSCLC alteration matrix.
+    n_exclusivity_groups: int = 8
+    exclusivity_group_size: int = 4
+    exclusivity_strength: float = 0.9     # P(constraint enforced) per patient
+
     seed: int = 0
     gene_prefix: str = "SIMG"
 
@@ -144,6 +159,101 @@ def simulate_panel_pair(cfg: SimulationConfig) -> PanelPair:
     return PanelPair(observed=observed, target=target)
 
 
+def _apply_mutual_exclusivity(
+    draws: np.ndarray,
+    probs: np.ndarray,
+    cfg: SimulationConfig,
+    rng: np.random.Generator,
+    n_obs: int,
+) -> list[list[int]]:
+    """Force at most one altered gene per driver group, in place.
+
+    Mutual exclusivity is the signature of a driver landscape: a tumour driven
+    by EGFR is not also driven by KRAS. It shows up as *negative* co-occurrence,
+    which a model can exploit -- observing an activated driver on the small
+    panel argues against the drivers it does not cover.
+
+    Under the negative-control regimes the groups are confined to the observed
+    block, so the exclusivity cannot leak cross-panel information.
+    """
+    n_all = draws.shape[1]
+    span_target = cfg.regime == "full"
+    groups: list[list[int]] = []
+    if cfg.n_exclusivity_groups <= 0 or cfg.exclusivity_group_size < 2:
+        return groups
+
+    # Prefer the commonest genes as drivers, which is where exclusivity lives.
+    ranked_obs = np.argsort(-probs[:, :n_obs].mean(axis=0))
+    ranked_tgt = np.argsort(-probs[:, n_obs:].mean(axis=0)) + n_obs
+    obs_pool, tgt_pool = list(ranked_obs), list(ranked_tgt)
+
+    # The observed members are drawn identically in every regime, and the
+    # target member is only ever *appended*. Substituting another observed gene
+    # in the control regimes would consume the observed pool at a different
+    # rate, making the observed block differ between regimes -- and the controls
+    # are only interpretable if the model inputs are held fixed.
+    n_observed_members = max(2, cfg.exclusivity_group_size - 1)
+    for _ in range(cfg.n_exclusivity_groups):
+        group: list[int] = []
+        for _ in range(n_observed_members):
+            if not obs_pool:
+                break
+            group.append(int(obs_pool.pop(0)))
+        if span_target and tgt_pool:
+            group.append(int(tgt_pool.pop(0)))
+        if len(group) >= 2:
+            groups.append(group)
+
+    # Pass 1 -- exclusivity *within the observed panel*. Identical in every
+    # regime, because the observed membership and the draw order both are.
+    for group in groups:
+        idx = np.array([g for g in group if g < n_obs])
+        if idx.size < 2:
+            continue
+        _enforce_one_of(draws, probs, idx, cfg.exclusivity_strength, rng)
+
+    # Pass 2 -- cross-panel exclusivity, applied in one direction only: an
+    # observed driver suppresses its target-panel partner, never the reverse.
+    # Clearing the observed gene instead would make the model's *input* depend
+    # on the regime, and the negative controls are only interpretable while the
+    # inputs are held fixed.
+    for group in groups:
+        tgt = [g for g in group if g >= n_obs]
+        obs = [g for g in group if g < n_obs]
+        if not tgt or not obs:
+            continue
+        driver_present = draws[:, obs].any(axis=1)
+        suppress = driver_present & (rng.random(draws.shape[0]) < cfg.exclusivity_strength)
+        for t in tgt:
+            draws[suppress, t] = False
+
+    return groups
+
+
+def _enforce_one_of(
+    draws: np.ndarray,
+    probs: np.ndarray,
+    idx: np.ndarray,
+    strength: float,
+    rng: np.random.Generator,
+) -> None:
+    """Keep at most one altered gene among ``idx``, weighted by its probability."""
+    block = draws[:, idx]
+    multi = block.sum(axis=1) > 1
+    enforce = multi & (rng.random(draws.shape[0]) < strength)
+    rows = np.flatnonzero(enforce)
+    if rows.size == 0:
+        return
+    weights = block[rows] * probs[np.ix_(rows, idx)]
+    totals = weights.sum(axis=1, keepdims=True)
+    totals[totals == 0] = 1.0
+    cumulative = np.cumsum(weights / totals, axis=1)
+    picks = np.clip((cumulative < rng.random((rows.size, 1))).sum(axis=1), 0, idx.size - 1)
+    cleared = np.zeros_like(block[rows])
+    cleared[np.arange(rows.size), picks] = True
+    draws[np.ix_(rows, idx)] = cleared
+
+
 def simulate_cohort(
     cfg: SimulationConfig | None = None,
     panel_pair: PanelPair | None = None,
@@ -184,6 +294,8 @@ def simulate_cohort(
     log_burden = rng.normal(0.0, cfg.burden_sigma, size=n)
     subtype = rng.choice(len(cfg.subtype_names), size=n, p=list(cfg.subtype_weights))
     factors = rng.normal(0.0, 1.0, size=(n, cfg.n_factors))
+    # One arm-level state per patient per arm; genes inherit their arm's state.
+    arm_state = rng.normal(0.0, 1.0, size=(n, cfg.n_arms))
 
     # ---- gene-level parameters -------------------------------------------
     burden_coef = np.abs(
@@ -198,12 +310,19 @@ def simulate_cohort(
         0.0, cfg.subtype_scale, size=(len(cfg.subtype_names), n_all)
     )
 
+    # Genes are laid out along the genome, so consecutive indices share an arm.
+    gene_arm = np.floor(np.arange(n_all) / n_all * cfg.n_arms).astype(int)
+    gene_arm = np.clip(gene_arm, 0, cfg.n_arms - 1)
+    arm_loading = np.abs(rng.normal(0.0, cfg.arm_effect_scale, size=n_all))
+    arm_loading[rng.random(n_all) >= cfg.arm_active_fraction] = 0.0
+
     # Negative controls sever the gene-specific channels for TARGET genes only:
     # the observed panel keeps its structure, so the input distribution is
     # unchanged and only the hypothesis under test is switched off.
     if cfg.regime in ("burden_only", "independent"):
         loadings[:, n_obs:] = 0.0
         subtype_effect[:, n_obs:] = 0.0
+        arm_loading[n_obs:] = 0.0
     if cfg.regime == "independent":
         burden_coef[n_obs:] = 0.0
 
@@ -211,6 +330,7 @@ def simulate_cohort(
         burden_coef[None, :] * log_burden[:, None]
         + factors @ loadings
         + subtype_effect[subtype]
+        + arm_loading[None, :] * arm_state[:, gene_arm]
     )
 
     prevalence = np.concatenate(
@@ -222,6 +342,8 @@ def simulate_cohort(
     intercepts = _calibrate_intercepts(eta, prevalence)
     probs = _sigmoid(eta + intercepts)
     draws = rng.random((n, n_all)) < probs
+
+    exclusivity_groups = _apply_mutual_exclusivity(draws, probs, cfg, rng, n_obs)
 
     patients = pd.Index([f"SIM-P{i:05d}" for i in range(n)], name="SAMPLE_ID")
     observed = pd.DataFrame(draws[:, :n_obs], index=patients, columns=observed_genes)
@@ -254,5 +376,7 @@ def simulate_cohort(
             "config": {k: v for k, v in cfg.__dict__.items()},
             "realised_target_sparsity": float(target.to_numpy().mean()),
             "realised_observed_sparsity": float(observed.to_numpy().mean()),
+            "n_exclusivity_groups": len(exclusivity_groups),
+            "exclusivity_groups": [list(map(int, g)) for g in exclusivity_groups],
         },
     )
