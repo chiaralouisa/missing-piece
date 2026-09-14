@@ -224,12 +224,12 @@ footer p{margin:12px 0 0}
 
   <div class="verdict">
     <div class="eyebrow">Finding 01 &middot; affects the headline</div>
-    <h2>A model that never looks at the patient scores 0.795</h2>
+    <h2>A model that never looks at the patient scores 0.749</h2>
     <p>
       In a simulated cohort built so that the target genes are <b>statistically
       independent of the patient</b> — zero recoverable signal, by construction —
-      the prevalence-only baseline still reaches a pooled AUROC of 0.795, just under
-      the range the abstract reports. Pooled AUROC is dominated by differences in
+      the prevalence-only baseline still reaches a pooled AUROC of 0.749 &mdash; the same
+      order as the range the abstract reports. Pooled AUROC is dominated by differences in
       prevalence <i>between</i> genes, not by anything learned about a tumour.
       Per-gene (macro) AUROC, which is prevalence-free, correctly reads 0.500 on
       the same predictions.
@@ -237,12 +237,12 @@ footer p{margin:12px 0 0}
     <div class="stat-pair">
       <div class="stat is-critical">
         <div class="k">Pooled AUROC · no signal present</div>
-        <div class="v">0.795</div>
-        <div class="n">Just under the reported 0.77–0.79</div>
+        <div class="v">0.749</div>
+        <div class="n">Same order as the reported 0.77–0.79</div>
       </div>
       <div class="stat is-critical">
         <div class="k">Within-patient AUROC · no signal</div>
-        <div class="v">0.809</div>
+        <div class="v">0.751</div>
         <div class="n">Also prevalence-confounded</div>
       </div>
       <div class="stat is-ok">
@@ -517,18 +517,18 @@ footer p{margin:12px 0 0}
           </tr>
         </thead>
         <tbody>
-          <tr><td>Logistic</td><td class="mcell"><span class="meter"><i style="width:73.2%"></i><u></u></span></td><td>0.732</td><td>0.718–0.746</td><td>+0.107</td><td>0.855</td><td>0.764</td><td>138</td></tr>
-          <tr><td>MLP</td><td class="mcell"><span class="meter"><i style="width:72.7%"></i><u></u></span></td><td>0.727</td><td>0.716–0.747</td><td>+0.102</td><td>0.867</td><td>0.763</td><td>138</td></tr>
-          <tr><td>Flow, discrete</td><td class="mcell"><span class="meter"><i style="width:69.0%"></i><u></u></span></td><td>0.690</td><td>0.681–0.711</td><td>+0.065</td><td>0.847</td><td>0.723</td><td>138</td></tr>
-          <tr><td>Flow, Gaussian</td><td class="mcell"><span class="meter"><i style="width:65.5%"></i><u></u></span></td><td>0.655</td><td>0.642–0.671</td><td>+0.030</td><td>0.812</td><td>0.695</td><td>138</td></tr>
-          <tr class="baseline"><td>Burden</td><td class="mcell"><span class="meter"><i style="width:62.5%"></i><u></u></span></td><td>0.625</td><td>0.612–0.639</td><td>0.000</td><td>0.824</td><td>0.629</td><td>138</td></tr>
-          <tr class="baseline"><td>Prevalence</td><td class="mcell"><span class="meter"><i style="width:50.0%"></i><u></u></span></td><td>0.500</td><td>0.500–0.500</td><td>−0.125</td><td>0.803</td><td>0.500</td><td>138</td></tr>
+          <tr><td>Logistic</td><td class="mcell"><span class="meter"><i style="width:71.6%"></i><u></u></span></td><td>0.716</td><td>0.704–0.726</td><td>+0.110</td><td>0.816</td><td>0.753</td><td>138</td></tr>
+          <tr><td>MLP</td><td class="mcell"><span class="meter"><i style="width:70.4%"></i><u></u></span></td><td>0.704</td><td>0.688–0.714</td><td>+0.098</td><td>0.830</td><td>0.744</td><td>138</td></tr>
+          <tr><td>Flow, discrete</td><td class="mcell"><span class="meter"><i style="width:67.9%"></i><u></u></span></td><td>0.679</td><td>0.664–0.690</td><td>+0.073</td><td>0.811</td><td>0.712</td><td>138</td></tr>
+          <tr><td>Flow, Gaussian</td><td class="mcell"><span class="meter"><i style="width:65.6%"></i><u></u></span></td><td>0.656</td><td>0.640–0.667</td><td>+0.051</td><td>0.762</td><td>0.680</td><td>138</td></tr>
+          <tr class="baseline"><td>Burden</td><td class="mcell"><span class="meter"><i style="width:60.6%"></i><u></u></span></td><td>0.606</td><td>0.594–0.620</td><td>0.000</td><td>0.773</td><td>0.632</td><td>138</td></tr>
+          <tr class="baseline"><td>Prevalence</td><td class="mcell"><span class="meter"><i style="width:50.0%"></i><u></u></span></td><td>0.500</td><td>0.500–0.500</td><td>−0.106</td><td>0.749</td><td>0.500</td><td>138</td></tr>
         </tbody>
       </table>
     </div>
     <p class="caption">
       Bars show macro AUROC; the hairline marks chance (0.500). Read the last row first: a
-      model that never looks at the patient scores <b>0.803 pooled</b> and <b>0.500</b> on
+      model that never looks at the patient scores <b>0.749 pooled</b> and <b>0.500</b> on
       every metric with the prevalence channel removed. That contrast is the whole point of
       the table.
     </p>
@@ -546,15 +546,15 @@ footer p{margin:12px 0 0}
       <table>
         <thead><tr><th>Regime</th><th>What is true</th><th>Macro AUROC</th><th>Pooled</th><th>Pooled adj.</th><th>Best gain vs burden</th><th>Verdict</th></tr></thead>
         <tbody>
-          <tr><td>Independent</td><td style="text-align:left;font-family:'Source Sans 3',sans-serif;white-space:normal">Target genes independent of the patient</td><td>0.500</td><td>0.795</td><td>0.500</td><td>—</td><td>Pass</td></tr>
-          <tr><td>Burden only</td><td style="text-align:left;font-family:'Source Sans 3',sans-serif;white-space:normal">Only burden couples the two panels</td><td>0.569</td><td>0.803</td><td>0.582</td><td>+0.007</td><td>Pass</td></tr>
-          <tr><td>Full</td><td style="text-align:left;font-family:'Source Sans 3',sans-serif;white-space:normal">Real gene-specific cross-panel signal</td><td>0.761</td><td>0.853</td><td>0.773</td><td>+0.126</td><td>Pass</td></tr>
+          <tr><td>Independent</td><td style="text-align:left;font-family:'Source Sans 3',sans-serif;white-space:normal">Target genes independent of the patient</td><td>0.500</td><td>0.748</td><td>0.500</td><td>—</td><td>Pass</td></tr>
+          <tr><td>Burden only</td><td style="text-align:left;font-family:'Source Sans 3',sans-serif;white-space:normal">Only burden couples the two panels</td><td>0.569</td><td>0.749</td><td>0.580</td><td>+0.011</td><td>Pass</td></tr>
+          <tr><td>Full</td><td style="text-align:left;font-family:'Source Sans 3',sans-serif;white-space:normal">Real gene-specific cross-panel signal</td><td>0.770</td><td>0.805</td><td>0.758</td><td>+0.168</td><td>Pass</td></tr>
         </tbody>
       </table>
     </div>
     <p class="caption">
-      The <i>independent</i> row is the one to keep in mind: pooled AUROC 0.795 and
-      within-patient 0.809 on data with nothing to find, both returning to 0.500 once the
+      The <i>independent</i> row is the one to keep in mind: pooled AUROC 0.748 and
+      within-patient 0.751 on data with nothing to find, both returning to 0.500 once the
       prevalence channel is removed.
     </p>
   </section>
